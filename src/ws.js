@@ -36,8 +36,14 @@ function notificarTodos(tipo, datos) {
   }
 }
 
-function iniciarWs(servidorHttp, { pinValido }) {
-  const wss = new WebSocketServer({ server: servidorHttp, path: '/ws' });
+function iniciarWs(servidorHttp, { sesionValida }) {
+  const wss = new WebSocketServer({
+    server: servidorHttp,
+    path: '/ws',
+    // Un mensaje de chat no llega a 2 KB. 64 KB deja margen de sobra y evita
+    // que alguien reserve memoria del servidor mandando tramas enormes.
+    maxPayload: 64 * 1024,
+  });
 
   wss.on('connection', (socket, req) => {
     const url = new URL(req.url, 'http://interno');
@@ -46,8 +52,12 @@ function iniciarWs(servidorHttp, { pinValido }) {
     socket.on('pong', () => { socket.estaVivo = true; });
 
     if (rol === 'operador') {
-      if (!pinValido(url.searchParams.get('pin'))) {
-        enviar(socket, 'error', { mensaje: 'PIN invalido' });
+      // Se valida la SESION obtenida en /admin/login, no el PIN. El PIN en la
+      // URL acabaria en el historial del navegador y en cualquier registro que
+      // guarde direcciones, y ademas es reutilizable indefinidamente; la
+      // sesion muere al reiniciar el servidor.
+      if (!sesionValida(url.searchParams.get('s'))) {
+        enviar(socket, 'error', { mensaje: 'Sesion invalida' });
         return socket.close();
       }
       conexionesOperador.add(socket);

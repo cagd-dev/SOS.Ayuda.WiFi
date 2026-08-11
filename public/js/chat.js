@@ -19,6 +19,13 @@ if (!token) location.replace('/');
 
 try { localStorage.setItem('sos_token', token); } catch { /* modo privado */ }
 
+// Una vez guardado, el token sale de la barra de direcciones: si no, queda en
+// el historial del navegador y en cualquier captura de pantalla. En un telefono
+// prestado o compartido eso entrega la sesion de otra persona.
+if (new URLSearchParams(location.search).has('t')) {
+  try { history.replaceState(null, '', location.pathname); } catch { /* navegador viejo */ }
+}
+
 let persona = null;
 let configServidor = null;
 let ultimoId = 0;

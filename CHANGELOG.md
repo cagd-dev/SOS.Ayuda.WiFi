@@ -5,6 +5,48 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.1.0] — 2026-08-11
+
+Endurecimiento tras una revisión de seguridad externa.
+
+### Corregido
+
+- **El respaldo perdía la base entera.** `respaldar.js` copiaba el archivo
+  `.sqlite3` a secas, pero la base está en modo WAL: con el portal encendido,
+  los datos viven en el archivo `-wal` hasta que se hace *checkpoint*. Medido en
+  un caso real: el archivo principal tenía 4 KB y el `-wal` 800 KB, y la copia
+  plana **ni siquiera se podía abrir**. Ahora se usa `VACUUM INTO`, que produce
+  una copia coherente aunque haya escrituras en curso, **y se verifica** abriendo
+  la copia y contando los registros. Si algo falla, se borra el archivo a medias
+  en vez de dejar un respaldo falso.
+- **El directorio público volcaba el censo completo.** Una petición sin texto de
+  búsqueda devolvía hasta 200 personas con nombre, código, estado y
+  acompañantes, a cualquiera conectado a la red. Ahora exige dos caracteres y
+  devuelve como mucho 50 coincidencias.
+- **Inyección de fórmulas en el CSV.** Excel ejecuta como fórmula toda celda que
+  empiece por `=`, `+`, `-` o `@`. Como el CSV lo abre la autoridad en su equipo,
+  bastaba registrarse con un nombre malicioso. Ahora esas celdas se neutralizan.
+
+### Cambiado
+
+- **El PIN ya no es `1234`.** En el primer arranque se genera uno aleatorio de
+  seis dígitos y se guarda. Un aviso pidiendo cambiarlo no es una defensa: con
+  prisa, ese PIN se queda puesto, y detrás están los datos de las víctimas.
+- **El PIN ya no viaja en la URL del WebSocket.** Se usa la sesión de
+  `/admin/login`, que no queda en el historial del navegador y muere al
+  reiniciar el servidor.
+- **Retardo creciente por dispositivo al fallar el PIN** (hasta 8 s). No es un
+  bloqueo: dejar fuera al operador sería peor que el abuso que evita.
+- **Cuotas por dispositivo** en registro, recuperación, mensajes, ubicación y
+  acceso. Generosas a propósito, porque en una emergencia la gente se registra
+  a ráfagas.
+- **Límite de 64 KB por mensaje de WebSocket.**
+- El token de sesión **se borra de la barra de direcciones** al capturarlo, y se
+  envía `Referrer-Policy: no-referrer`. En un teléfono prestado, ese token en el
+  historial entrega la sesión de otra persona.
+
+---
+
 ## [1.0.0] — 2026-08-11
 
 Primera versión funcional. Nace tras el terremoto de Colombia de agosto de 2026,

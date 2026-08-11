@@ -12,6 +12,11 @@ const $ = (sel) => document.querySelector(sel);
 
 const token = new URLSearchParams(location.search).get('t');
 
+// Ya lo tenemos en memoria: fuera de la barra de direcciones y del historial.
+if (token) {
+  try { history.replaceState(null, '', location.pathname); } catch { /* navegador viejo */ }
+}
+
 let cuentaAtras = null;
 
 function mostrar(id) {

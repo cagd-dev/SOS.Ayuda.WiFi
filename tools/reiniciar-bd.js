@@ -65,15 +65,21 @@ function main() {
     console.log(`  Contenido actual: ${conteo.total} persona(s) y ${conteo.mensajes} mensaje(s).`);
   }
 
-  // 1. Respaldo primero, siempre.
+  // 1. Respaldo primero, siempre. Y verificado: con VACUUM INTO, no copiando
+  //    el archivo, porque en modo WAL los ultimos registros viven en el -wal
+  //    y una copia plana los perderia justo antes de borrarlo todo.
   fs.mkdirSync(carpetaRespaldos, { recursive: true });
   const sello = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   const destino = path.join(carpetaRespaldos, `sos-${sello}.sqlite3`);
 
   try {
-    fs.copyFileSync(config.rutaBaseDatos, destino);
-    console.log(`  Respaldo guardado en: ${destino}`);
+    const { db, respaldarBase } = require('../src/db');
+    const copia = respaldarBase(destino);
+    // Cerramos nuestra propia conexion o Windows no dejara borrar el archivo.
+    db.close();
+    console.log(`  Respaldo verificado (${copia.personas} personas): ${destino}`);
   } catch (err) {
+    try { fs.rmSync(destino, { force: true }); } catch { /* nada que hacer */ }
     console.log('');
     console.log('  NO SE PUDO RESPALDAR — no se borro nada.');
     console.log(`  ${err.message}`);

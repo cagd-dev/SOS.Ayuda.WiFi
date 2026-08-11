@@ -376,6 +376,42 @@ const mensajes = {
 };
 
 /**
+ * Copia consistente de la base, y comprueba que la copia se puede abrir.
+ *
+ * NO vale copiar el archivo .sqlite3 con copyFileSync: estamos en modo WAL, y
+ * en WAL los cambios recientes viven en el archivo -wal hasta que se hace
+ * checkpoint. Copiar solo el principal puede dejar fuera a las ultimas
+ * personas registradas, que en una emergencia son justo las que importan.
+ *
+ * VACUUM INTO escribe una base nueva, completa y coherente, aunque haya
+ * escrituras en curso. Despues la abrimos y contamos: un respaldo que no se
+ * ha comprobado no es un respaldo.
+ */
+function respaldarBase(destino) {
+  // VACUUM INTO no admite parametros: la ruta va como literal SQL y hay que
+  // escapar las comillas simples.
+  const literal = String(destino).replace(/'/g, "''");
+  db.exec(`VACUUM INTO '${literal}'`);
+
+  const { DatabaseSync } = require('node:sqlite');
+  const copia = new DatabaseSync(destino, { readOnly: true });
+  try {
+    const personasCopia = copia.prepare('SELECT COUNT(*) AS n FROM personas').get().n;
+    const mensajesCopia = copia.prepare('SELECT COUNT(*) AS n FROM mensajes').get().n;
+    const original = db.prepare('SELECT COUNT(*) AS n FROM personas').get().n;
+
+    if (personasCopia < original) {
+      throw new Error(
+        `el respaldo tiene ${personasCopia} personas y el original ${original}`
+      );
+    }
+    return { personas: personasCopia, mensajes: mensajesCopia };
+  } finally {
+    copia.close();
+  }
+}
+
+/**
  * Censo completo en CSV. Vive aqui y no en la ruta HTTP porque la consola de
  * administracion tiene que poder exportar con el servidor apagado.
  */
@@ -387,9 +423,16 @@ function exportarCsv() {
     'creado_en', 'actualizado_en',
   ];
   const celda = (valor) => {
-    const texto = Array.isArray(valor)
+    let texto = Array.isArray(valor)
       ? valor.join(' | ')
       : valor === null || valor === undefined ? '' : String(valor);
+
+    // Excel interpreta como FORMULA todo lo que empieza por = + - o @, y las
+    // formulas de Excel pueden ejecutar comandos. Como este CSV lo abre la
+    // autoridad en su equipo, alguien podria registrarse con un nombre como
+    // =cmd|'/c ...'!A1 y atacarla. Un apostrofo delante lo vuelve texto.
+    if (/^[=+\-@\t\r]/.test(texto)) texto = `'${texto}`;
+
     return `"${texto.replace(/"/g, '""')}"`;
   };
   const filas = personas.listar().map((p) => columnas.map((c) => celda(p[c])).join(';'));
@@ -405,6 +448,6 @@ const eventos = {
 };
 
 module.exports = {
-  db, personas, mensajes, eventos, vistaPersona, exportarCsv,
+  db, personas, mensajes, eventos, vistaPersona, exportarCsv, respaldarBase,
   ESTADOS, NECESIDADES, ahora,
 };

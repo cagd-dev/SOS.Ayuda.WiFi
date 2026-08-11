@@ -452,6 +452,22 @@ async function main() {
   const csvDudoso = await fetch(`${URL_BASE}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.text());
   revisar('el CSV documenta el motivo del dudoso', csvDudoso.includes('reporte inconsistente'));
 
+  // Inyeccion de formulas: el CSV lo abre la autoridad en Excel, y una formula
+  // metida en un nombre se ejecutaria en SU equipo.
+  const conFormula = await fetch(`${URL_BASE}/api/registro`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ nombre: '=1+1', estado: 'bien', ubicacion: '@SUM(A1)' }),
+  }).then(json);
+  revisar('acepta un nombre que parece formula', !!conFormula.persona?.id);
+
+  const csvFormulas = await fetch(`${URL_BASE}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.text());
+  revisar('el CSV neutraliza las formulas de Excel',
+    csvFormulas.includes('"\'=1+1"') && csvFormulas.includes('"\'@SUM(A1)"'),
+    'deben salir con apostrofo delante');
+  revisar('y no deja ninguna celda empezando por =',
+    !/;"=/.test(csvFormulas) && !/^"=/m.test(csvFormulas));
+
   const desmarcado = await fetch(`${URL_BASE}/admin/api/personas/${idPersona}/dudoso`, {
     method: 'POST',
     headers: cabecerasOp,
@@ -471,6 +487,14 @@ async function main() {
   const directorio = await fetch(`${URL_BASE}/api/directorio?q=Prueba`, { headers: { Accept: 'application/json' } }).then(json);
   revisar('el directorio encuentra por nombre', directorio.personas?.length >= 1);
   revisar('el directorio NO expone el token', !JSON.stringify(directorio).includes(token));
+
+  // Sin esto, cualquiera en la red se descargaba el censo entero pidiendo la
+  // ruta sin texto de busqueda.
+  const volcado = await fetch(`${URL_BASE}/api/directorio`, { headers: { Accept: 'application/json' } }).then(json);
+  revisar('el directorio NO vuelca el censo sin busqueda', volcado.personas?.length === 0,
+    `devolvio ${volcado.personas?.length}`);
+  const unaLetra = await fetch(`${URL_BASE}/api/directorio?q=P`, { headers: { Accept: 'application/json' } }).then(json);
+  revisar('el directorio exige dos letras', unaLetra.personas?.length === 0);
 
   /* --- WebSocket --- */
   await new Promise((resolver) => {
@@ -497,6 +521,43 @@ async function main() {
     });
     socket.on('error', () => {
       revisar('el WebSocket responde', false, 'error de conexion');
+      clearTimeout(limite);
+      resolver();
+    });
+  });
+
+  // El WebSocket de operador ya NO acepta el PIN: exige la sesion de /admin/login.
+  await new Promise((resolver) => {
+    const socket = new WebSocket(
+      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&pin=${encodeURIComponent(PIN)}`);
+    let rechazado = false;
+    socket.on('message', (crudo) => {
+      if (JSON.parse(crudo.toString()).tipo === 'error') rechazado = true;
+    });
+    socket.on('close', () => { revisar('el WebSocket de operador rechaza el PIN en la URL', rechazado); resolver(); });
+    socket.on('error', () => { revisar('el WebSocket de operador rechaza el PIN en la URL', true); resolver(); });
+    setTimeout(resolver, 4000);
+  });
+
+  await new Promise((resolver) => {
+    const socket = new WebSocket(
+      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`);
+    const limite = setTimeout(() => {
+      revisar('el WebSocket de operador acepta la sesion', false, 'se agoto el tiempo');
+      try { socket.close(); } catch { /* ya cerrado */ }
+      resolver();
+    }, 5000);
+    socket.on('message', (crudo) => {
+      const datos = JSON.parse(crudo.toString());
+      if (datos.tipo === 'listo') {
+        revisar('el WebSocket de operador acepta la sesion', datos.rol === 'operador');
+        clearTimeout(limite);
+        socket.close();
+        resolver();
+      }
+    });
+    socket.on('error', () => {
+      revisar('el WebSocket de operador acepta la sesion', false, 'error de conexion');
       clearTimeout(limite);
       resolver();
     });

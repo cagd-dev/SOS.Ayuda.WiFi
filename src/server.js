@@ -30,7 +30,7 @@ const path = require('node:path');
 const http = require('node:http');
 const https = require('node:https');
 const config = require('./config');
-const { crearApp, pinValido } = require('./http');
+const { crearApp, sesionValida } = require('./http');
 const { iniciarWs } = require('./ws');
 const { iniciarDns } = require('./dns');
 const { personas, eventos } = require('./db');
@@ -68,7 +68,7 @@ function linea(caracter = '─', largo = 66) {
 async function arrancar() {
   const app = crearApp();
   const servidor = http.createServer(app);
-  iniciarWs(servidor, { pinValido });
+  iniciarWs(servidor, { sesionValida });
 
   await new Promise((resolver, rechazar) => {
     servidor.once('error', (err) => {
@@ -219,11 +219,11 @@ async function arrancar() {
     console.log('    escribir la direccion a mano.');
   }
 
-  if (config.pinOperador === '1234') {
+  if (config.pinRecienGenerado) {
     console.log('');
-    console.log('  AVISO — el PIN de operador es el de fabrica (1234).');
-    console.log('    Aqui hay datos personales de victimas. Cambialo asi:');
-    console.log('      set SOS_PIN=elquesea && npm start');
+    console.log(`  ANOTA ESTE PIN: ${config.pinOperador}`);
+    console.log('    Se genero al azar en este primer arranque y ya quedo guardado.');
+    console.log('    Es el que abre la consola de operador. Cambialo desde el panel si quieres.');
   }
 
   console.log('');

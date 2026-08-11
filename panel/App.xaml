@@ -92,25 +92,81 @@
     </Style>
 
     <!--
-      El desplegable de la lista NO usa los colores del control: la plantilla de
-      Windows lo pinta con los colores del SISTEMA. Con tema claro salia legible
-      y con tema oscuro quedaba texto oscuro sobre fondo oscuro, invisible.
-      Redefiniendo aqui esas claves del sistema, el desplegable se ve igual con
-      cualquier tema que tenga el equipo.
+      Plantilla COMPLETA del desplegable, cerrado y abierto.
+      La plantilla de Windows pinta el control con los colores del SISTEMA, no
+      con los del control: con tema claro se veia bien y con tema oscuro el
+      texto quedaba ilegible. Redefinir las claves del sistema arreglaba la
+      lista abierta pero no la cerrada. Con plantilla propia no queda nada
+      dependiendo del tema que tenga el equipo.
     -->
     <Style TargetType="ComboBox">
       <Setter Property="Background" Value="{StaticResource Superficie2}"/>
       <Setter Property="Foreground" Value="{StaticResource Texto}"/>
       <Setter Property="BorderBrush" Value="{StaticResource Borde}"/>
-      <Setter Property="Padding" Value="7,6"/>
+      <Setter Property="Padding" Value="9,7"/>
       <Setter Property="FontSize" Value="12"/>
-      <Style.Resources>
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#21262D"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F0F6FC"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#21262D"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#F78166"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#1A1005"/>
-      </Style.Resources>
+      <Setter Property="MinHeight" Value="34"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid>
+              <ToggleButton x:Name="alternar" Focusable="False" ClickMode="Press"
+                            IsChecked="{Binding IsDropDownOpen, Mode=TwoWay,
+                                        RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="marco" CornerRadius="6"
+                            Background="{StaticResource Superficie2}"
+                            BorderBrush="{StaticResource Borde}" BorderThickness="1">
+                      <Path HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="0,0,11,0" Data="M 0 0 L 9 0 L 4.5 5 Z"
+                            Fill="{StaticResource TextoSuave}"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="marco" Property="BorderBrush"
+                                Value="{StaticResource Info}"/>
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+
+              <!-- Esto es lo que arregla el texto con la lista CERRADA: forzar
+                   el color en el presentador del elemento seleccionado. -->
+              <ContentPresenter IsHitTestVisible="False"
+                                Content="{TemplateBinding SelectionBoxItem}"
+                                ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                Margin="{TemplateBinding Padding}"
+                                VerticalAlignment="Center" HorizontalAlignment="Left"
+                                TextElement.Foreground="{StaticResource Texto}"/>
+
+              <Popup x:Name="desplegable" Placement="Bottom" AllowsTransparency="True"
+                     IsOpen="{TemplateBinding IsDropDownOpen}" Focusable="False"
+                     PopupAnimation="Slide" VerticalOffset="2">
+                <Border CornerRadius="6" Margin="0,0,6,6"
+                        Background="{StaticResource Superficie2}"
+                        BorderBrush="{StaticResource Borde}" BorderThickness="1"
+                        MinWidth="{Binding ActualWidth,
+                                   RelativeSource={RelativeSource TemplatedParent}}"
+                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                  <Border.Effect>
+                    <DropShadowEffect BlurRadius="12" ShadowDepth="3" Opacity="0.6" Color="Black"/>
+                  </Border.Effect>
+                  <ScrollViewer>
+                    <ItemsPresenter/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
 
     <!-- Plantilla propia para cada renglon: asi el color no depende de lo que

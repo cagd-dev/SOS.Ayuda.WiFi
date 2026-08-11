@@ -9,6 +9,7 @@
 const $ = (sel) => document.querySelector(sel);
 
 let pin = null;
+let sesion = null;   // token que devuelve /admin/login; el PIN no vuelve a salir
 let operador = '';
 let personas = [];
 let seleccionada = null;
@@ -40,8 +41,10 @@ async function entrar() {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({ pin: valor }),
     });
-    if (!respuesta.ok) throw new Error('PIN incorrecto');
+    const cuerpo = await respuesta.json().catch(() => ({}));
+    if (!respuesta.ok) throw new Error(cuerpo.error || 'PIN incorrecto');
 
+    sesion = cuerpo.sesion;
     pin = valor;
     operador = $('#campoOperador').value.trim();
     try {
@@ -361,7 +364,9 @@ $('#btnVolverLista').addEventListener('click', () => { $('#consola').dataset.vis
 
 function conectarWebSocket() {
   const protocolo = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  socket = new WebSocket(`${protocolo}//${location.host}/ws?rol=operador&pin=${encodeURIComponent(pin)}`);
+  // Va la SESION, nunca el PIN: una URL acaba en el historial del navegador y
+  // en cualquier registro que guarde direcciones, y el PIN es reutilizable.
+  socket = new WebSocket(`${protocolo}//${location.host}/ws?rol=operador&s=${encodeURIComponent(sesion)}`);
 
   socket.addEventListener('message', (evento) => {
     let datos;

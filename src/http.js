@@ -22,6 +22,82 @@ function pinValido(pin) {
   return crypto.timingSafeEqual(a, b);
 }
 
+/** La usa el WebSocket para no tener que ver nunca el PIN. */
+function sesionValida(sesion) {
+  return !!sesion && sesionesOperador.has(sesion);
+}
+
+/* ------------------------------------------------------------------ *
+ * Cuotas por dispositivo
+ *
+ * Objetivo: que un solo equipo no pueda saturar el servidor ni probar PINes a
+ * ciegas. NO es un bloqueo global: dejar fuera a todo el mundo (incluido el
+ * operador) seria mucho peor que el abuso que evita. Los limites son altos a
+ * proposito, porque en una emergencia la gente se registra a rafagas.
+ * ------------------------------------------------------------------ */
+const contadores = new Map();
+
+function limitar({ clave, maximo, ventana }) {
+  const ahoraMs = Date.now();
+  const registro = contadores.get(clave);
+
+  if (!registro || ahoraMs > registro.hasta) {
+    contadores.set(clave, { cuenta: 1, hasta: ahoraMs + ventana });
+    return { permitido: true, restante: maximo - 1 };
+  }
+
+  registro.cuenta += 1;
+  if (registro.cuenta > maximo) {
+    return { permitido: false, esperar: Math.ceil((registro.hasta - ahoraMs) / 1000) };
+  }
+  return { permitido: true, restante: maximo - registro.cuenta };
+}
+
+/** Limpieza periodica: sin esto el mapa crece con cada IP que pasa. */
+setInterval(() => {
+  const ahoraMs = Date.now();
+  for (const [clave, registro] of contadores) {
+    if (ahoraMs > registro.hasta) contadores.delete(clave);
+  }
+}, 60_000).unref?.();
+
+function cuota(nombre, maximo, ventana) {
+  return (req, res, siguiente) => {
+    const veredicto = limitar({
+      clave: `${nombre}:${normalizarIp(req.ip)}`, maximo, ventana,
+    });
+    if (veredicto.permitido) return siguiente();
+
+    res.set('Retry-After', String(veredicto.esperar));
+    res.status(429).json({
+      error: `Demasiados intentos. Espera ${veredicto.esperar} segundos.`,
+    });
+  };
+}
+
+/**
+ * Retardo creciente para el PIN: cada fallo desde la misma IP tarda mas en
+ * responder. Frena la prueba a ciegas sin bloquear a nadie, que es lo que
+ * importa cuando el operador puede estar equivocandose de tecla con prisa.
+ */
+const fallosPin = new Map();
+
+function retardoPorFallos(ip) {
+  const fallos = fallosPin.get(ip)?.cuenta || 0;
+  return Math.min(fallos * fallos * 250, 8000); // 0, 250ms, 1s, 2.2s... hasta 8s
+}
+
+function apuntarFalloPin(ip) {
+  const actual = fallosPin.get(ip) || { cuenta: 0 };
+  actual.cuenta += 1;
+  actual.ultimo = Date.now();
+  fallosPin.set(ip, actual);
+}
+
+function limpiarFallosPin(ip) {
+  fallosPin.delete(ip);
+}
+
 function leerCookies(req) {
   const crudo = req.headers.cookie;
   if (!crudo) return {};
@@ -98,8 +174,21 @@ function crearApp() {
 
   app.use((req, res, siguiente) => {
     res.set('Cache-Control', 'no-store');
+    // El token de sesion viaja a veces en la URL (?t=...). Sin esto, ese token
+    // saldria en la cabecera Referer hacia cualquier recurso que se cargue.
+    res.set('Referrer-Policy', 'no-referrer');
+    res.set('X-Content-Type-Options', 'nosniff');
     siguiente();
   });
+
+  /* Cuotas por dispositivo. Generosas a proposito: en una emergencia la gente
+     se registra a rafagas y frenar a quien pide ayuda seria el peor error. */
+  const MINUTO = 60_000;
+  const cuotaRegistro   = cuota('registro', 12, 5 * MINUTO);
+  const cuotaRecuperar  = cuota('recuperar', 20, 5 * MINUTO);
+  const cuotaMensajes   = cuota('mensajes', 90, MINUTO);
+  const cuotaLogin      = cuota('login', 25, 5 * MINUTO);
+  const cuotaUbicacion  = cuota('ubicacion', 30, 5 * MINUTO);
 
   /* ---------------- API de la persona ---------------- */
 
@@ -134,7 +223,7 @@ function crearApp() {
     });
   });
 
-  app.post('/api/registro', async (req, res) => {
+  app.post('/api/registro', cuotaRegistro, async (req, res) => {
     const nombre = String(req.body.nombre || '').trim();
     if (nombre.length < 2) {
       return responder(req, res, 400, { error: 'Escribe tu nombre para poder ubicarte.' });
@@ -172,7 +261,7 @@ function crearApp() {
     return responder(req, res, 200, { ok: true, persona: vistaPersona(persona) }, `/chat.html?t=${persona.token}`);
   });
 
-  app.post('/api/recuperar', (req, res) => {
+  app.post('/api/recuperar', cuotaRecuperar, (req, res) => {
     const codigo = String(req.body.codigo || '').trim().toUpperCase();
     const nombre = String(req.body.nombre || '').trim().toLowerCase();
     const fila = personas.buscar(codigo).find((p) => p.codigo === codigo);
@@ -246,7 +335,7 @@ function crearApp() {
     res.json({ mensajes: mensajes.deLaPersona(persona.id, desde) });
   });
 
-  app.post('/api/mensajes', (req, res) => {
+  app.post('/api/mensajes', cuotaMensajes, (req, res) => {
     const persona = personaDeLaPeticion(req);
     if (!persona) return res.status(404).json({ error: 'Sin sesion' });
     const texto = String(req.body.texto || '').trim();
@@ -268,7 +357,7 @@ function crearApp() {
    * usa desde el canal seguro: la persona ya esta registrada y solo enriquece
    * su ficha con el GPS.
    */
-  app.post('/api/ubicacion', (req, res) => {
+  app.post('/api/ubicacion', cuotaUbicacion, (req, res) => {
     const persona = personaDeLaPeticion(req);
     if (!persona) return res.status(404).json({ error: 'Sin sesion' });
 
@@ -311,10 +400,25 @@ function crearApp() {
     res.json({ ok: true, ubicacion: linea });
   });
 
-  /** Tablon publico: solo nombre y estado, para que la gente busque a los suyos. */
+  /**
+   * Tablon publico para que la gente busque a los suyos.
+   *
+   * EXIGE al menos dos caracteres de busqueda. Sin ese limite, una peticion sin
+   * texto devolvia el censo entero: nombres, codigos, estado y acompanantes de
+   * todo el mundo, a cualquiera que estuviese en la red. Buscar a una persona
+   * concreta sigue funcionando igual; volcar la lista completa, no.
+   */
   app.get('/api/directorio', (req, res) => {
     const q = String(req.query.q || '').trim();
-    const lista = (q ? personas.buscar(q) : personas.listar()).slice(0, 200);
+    if (q.length < 2) {
+      return res.json({
+        total: personas.contar().total,
+        personas: [],
+        aviso: 'Escribe al menos dos letras del nombre que buscas.',
+      });
+    }
+
+    const lista = personas.buscar(q).slice(0, 50);
     res.json({
       total: personas.contar().total,
       personas: lista.map((p) => ({
@@ -330,11 +434,21 @@ function crearApp() {
 
   /* ---------------- API del operador ---------------- */
 
-  app.post('/admin/login', (req, res) => {
+  app.post('/admin/login', cuotaLogin, async (req, res) => {
+    const ip = normalizarIp(req.ip) || 'desconocida';
+
+    // El retardo se aplica ANTES de comprobar: quien acierta a la primera no
+    // espera nada, y quien va probando se encuentra con esperas crecientes.
+    const espera = retardoPorFallos(ip);
+    if (espera) await new Promise((r) => setTimeout(r, espera));
+
     if (!pinValido(req.body.pin)) {
-      eventos.registrar('login-fallido', { ip: req.ip });
+      apuntarFalloPin(ip);
+      eventos.registrar('login-fallido', { ip, intentos: fallosPin.get(ip)?.cuenta });
       return res.status(401).json({ error: 'PIN incorrecto' });
     }
+
+    limpiarFallosPin(ip);
     const sesion = crypto.randomBytes(24).toString('hex');
     sesionesOperador.add(sesion);
     ponerCookie(res, 'sos_op', sesion);
@@ -480,4 +594,4 @@ function crearApp() {
   return app;
 }
 
-module.exports = { crearApp, pinValido };
+module.exports = { crearApp, pinValido, sesionValida };

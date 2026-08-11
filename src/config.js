@@ -2,7 +2,32 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const ajustes = require('./ajustes').leer();
+const crypto = require('node:crypto');
+const almacenAjustes = require('./ajustes');
+const ajustes = almacenAjustes.leer();
+
+/**
+ * PIN de operador. La primera vez se genera uno ALEATORIO de seis digitos y se
+ * guarda.
+ *
+ * Antes habia un 1234 de fabrica y un aviso pidiendo cambiarlo. Un aviso no es
+ * una defensa: en un despliegue real, con prisa, ese PIN se queda puesto — y
+ * detras de el estan los nombres, cedulas y ubicaciones de las victimas. Un
+ * valor aleatorio no se olvida de cambiar porque nunca fue conocido.
+ */
+function pinInicial() {
+  if (process.env.SOS_PIN) return String(process.env.SOS_PIN);
+  if (ajustes.pin) return String(ajustes.pin);
+
+  const nuevo = String(crypto.randomInt(100000, 1000000));
+  try {
+    almacenAjustes.guardar({ pin: nuevo });
+  } catch {
+    // Si no se puede escribir (disco lleno, permisos), seguimos con el PIN en
+    // memoria: mejor uno aleatorio que no persiste que uno conocido.
+  }
+  return nuevo;
+}
 
 /**
  * Adaptadores que casi nunca son la red real del router: VMware, Hyper-V, WSL,
@@ -129,9 +154,9 @@ const config = {
   // resuelven por mDNS y se saltan nuestro DNS.
   host: process.env.SOS_HOST || 'sos.ayuda',
 
-  // PIN de la consola de operador. Los datos son sensibles: cambialo desde
-  // ADMINISTRAR.bat (opcion 3), que lo guarda en datos/configuracion.json.
-  pinOperador: String(process.env.SOS_PIN || ajustes.pin || '1234'),
+  // PIN de la consola de operador: aleatorio la primera vez (ver pinInicial).
+  pinOperador: pinInicial(),
+  pinRecienGenerado: !process.env.SOS_PIN && !ajustes.pin,
 
   nombrePuesto: process.env.SOS_PUESTO || ajustes.puesto || 'Puesto de Mando SOS',
   mensajeBienvenida:

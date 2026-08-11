@@ -1,8 +1,8 @@
 # SOS · Conéctate · Pide Ayuda
 
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.0.0-blue.svg)](CHANGELOG.md)
-[![Pruebas](https://img.shields.io/badge/pruebas-100%20OK-brightgreen.svg)](pruebas/humo.js)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.1.0-blue.svg)](CHANGELOG.md)
+[![Pruebas](https://img.shields.io/badge/pruebas-107%20OK-brightgreen.svg)](pruebas/humo.js)
 
 Portal cautivo de emergencia para localizar personas después de un desastre.
 Se despliega un router WiFi abierto; cuando alguien se conecta, **se le abre solo**
