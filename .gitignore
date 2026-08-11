@@ -14,3 +14,7 @@ panel/publicado/
 # Distribuible
 empaquetar/salida/
 runtime/
+
+# Capturas en crudo. Las del README salen de aqui pero pasadas por el retoque
+# que tapa el PIN y quita las coordenadas reales: lo de esta carpeta NO se sube.
+images/originales/

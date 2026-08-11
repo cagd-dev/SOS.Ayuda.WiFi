@@ -39,6 +39,32 @@ documentación técnica.
 
 ---
 
+## Así se ve
+
+**Lo que ve la persona.** Se le abre solo al conectarse al WiFi. Nombre, cómo
+está y qué necesita: tres respuestas y ya está en el censo. Botones grandes y
+fondo oscuro, pensado para manos temblando y pantallas rotas.
+
+<img src="images/portal-de-la-persona.png" alt="Portal de registro en el celular" width="330">
+
+**El puesto de mando.** La lista se ordena sola por urgencia — atrapados y
+heridos graves arriba, atendidos al fondo — y desde la ficha se responde por
+chat, se marca atendido o se marca como reporte dudoso.
+
+![Consola del operador](images/consola-del-operador.png)
+
+**El panel de mando.** Arranca y detiene el portal, cambia el PIN, abre los
+puertos del firewall, exporta el censo y guía el cierre de la operación. El log
+del servidor va embebido en la propia ventana, así no hay consolas sueltas
+robando el teclado.
+
+![Panel de mando](images/panel-de-mando.png)
+
+> Las capturas son de una prueba con datos inventados. El PIN va tapado y la
+> coordenada GPS es sintética: nunca publiques capturas de una operación real.
+
+---
+
 ## Distribuir
 
 ```powershell
@@ -82,7 +108,8 @@ Equivalentes por línea de comandos:
 | `npm run puertos-altos` | Igual, pero en 8080/8443/5354 (no necesita Administrador) |
 | `npm run dev` | Con recarga automática al editar |
 | `npm run diagnostico` | Chequeo previo al despliegue |
-| `npm run prueba` | 60 pruebas end-to-end contra el servidor corriendo |
+| `npm run prueba` | 107 pruebas end-to-end contra el servidor corriendo |
+| `npm run prueba-cierre` | 27 pruebas del cierre de operación (no necesita el servidor) |
 | `npm run limpiar` | Respalda y vacía la base (con el servidor detenido) |
 
 ---
@@ -122,10 +149,14 @@ Detalles que importan y por los que fallan otras implementaciones:
 ```
 src/
   ajustes.js   Lee y escribe datos/configuracion.json (PIN, puesto, IP)
+  cierre.js    Cierre de operación: cerrar, entregar, purgar, constancia
   config.js    Detección de IP LAN (descarta VMware/Hyper-V/VPN), puertos, PIN
   db.js        SQLite: personas, mensajes, eventos. Cálculo de urgencia.
+  dhcp.js      Servidor DHCP para el modo punto de acceso propio (RFC 2131)
   dns.js       Servidor DNS escrito a mano sobre dgram
   http.js      Express: intercepción de sondas, API pública y API de operador
+  puntoacceso.js  Levanta el WiFi con la tarjeta del equipo y dice si puede
+  red.js       Identifica el teléfono por su MAC leyendo la tabla ARP
   tls.js       Certificado autofirmado para el canal del GPS
   ws.js        Chat en tiempo real
   server.js    Arranque, banner con instrucciones del router, apagado limpio
@@ -137,12 +168,15 @@ public/
   cartel.html     Cartel imprimible con el nombre de la red
   js/gps-enlace.js  Explicación previa al aviso de certificado (portal y chat)
 pruebas/
-  humo.js        60 pruebas end-to-end
+  humo.js        107 pruebas end-to-end
+  cierre.js      27 pruebas del cierre, contra una carpeta temporal
   diagnostico.js Chequeo previo al despliegue
 tools/
+  cierre.js        Cierre de operación por línea de comandos
   consola.js       Menú de texto (respaldo del panel)
   estado.js        Estado del sistema en JSON, para el panel
   exportar-csv.js  Censo a CSV
+  punto-acceso.js  ¿Puede esta tarjeta ser punto de acceso? Veredicto y motivo
   respaldar.js     Copia de la base con fecha
   reiniciar-bd.js  Respalda y vacía la base
 panel/
@@ -285,7 +319,7 @@ siga vivo, y lo limpia.
 
 | Variable | Default | Para qué |
 |---|---|---|
-| `SOS_PIN` | `1234` | PIN de la consola. **Cámbialo.** |
+| `SOS_PIN` | aleatorio | PIN de la consola. Se genera de seis dígitos en el primer arranque; esta variable solo sirve para forzarlo en pruebas |
 | `SOS_IP` | autodetectada | Fuerza la IP si hay varias tarjetas |
 | `SOS_PUERTO_HTTP` | `80` | Puerto del portal |
 | `SOS_PUERTO_DNS` | `53` | Puerto del DNS |
