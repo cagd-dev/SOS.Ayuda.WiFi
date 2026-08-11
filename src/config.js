@@ -94,6 +94,40 @@ function leerFlag(nombre) {
 const raiz = path.resolve(__dirname, '..');
 
 /**
+ * Donde viven los datos (censo, respaldos, configuracion, certificados).
+ *
+ * Tres casos, en este orden:
+ *
+ *  1. SOS_DATOS apunta a otra carpeta. Sirve para probar el cierre de
+ *     operacion, que destruye la base, sin tocar nada real.
+ *
+ *  2. Hay un archivo ".instalado" junto al programa: es una instalacion, el
+ *     codigo vive en Archivos de programa y ahi NO se deben escribir datos.
+ *     Van a ProgramData, que es el sitio de Windows para datos de aplicacion
+ *     compartidos entre usuarios.
+ *
+ *  3. No hay marca: estamos sobre el codigo fuente o en la version portatil
+ *     (una USB). Los datos van al lado, que es lo que se espera de algo
+ *     portatil.
+ */
+function resolverCarpetaDatos() {
+  if (process.env.SOS_DATOS) return path.resolve(process.env.SOS_DATOS);
+
+  const esInstalacion = require('node:fs').existsSync(path.join(raiz, '.instalado'));
+  if (esInstalacion) {
+    const comun = process.env.ProgramData || path.join(process.env.SystemDrive || 'C:', 'ProgramData');
+    return path.join(comun, 'SOS.Ayuda.WiFi');
+  }
+
+  return path.join(raiz, 'datos');
+}
+
+const carpetaDatos = resolverCarpetaDatos();
+const carpetaExportes = (process.env.SOS_DATOS || carpetaDatos !== path.join(raiz, 'datos'))
+  ? path.join(carpetaDatos, 'exportes')
+  : path.join(raiz, 'exportes');
+
+/**
  * Dos formas de montar la red:
  *
  *  'router' — hay un router que reparte DHCP. Nosotros solo ponemos DNS y web.
@@ -135,9 +169,9 @@ const config = {
   modo: MODO,
   puntoAcceso,
   publico: path.join(raiz, 'public'),
-  carpetaDatos: path.join(raiz, 'datos'),
-  rutaBaseDatos: path.join(raiz, 'datos', 'sos.sqlite3'),
-  carpetaExportes: path.join(raiz, 'exportes'),
+  carpetaDatos,
+  rutaBaseDatos: path.join(carpetaDatos, 'sos.sqlite3'),
+  carpetaExportes,
 
   ip: detectarIpLan(),
   puertoHttp: Number(leerFlag('--http') || process.env.SOS_PUERTO_HTTP || 80),

@@ -103,6 +103,7 @@ public static class Proyecto
 public sealed class EstadoSistema
 {
     public string Ip { get; init; } = "";
+    public string CarpetaDatos { get; init; } = "";
     public bool IpFijada { get; init; }
     public string Puesto { get; init; } = "";
     public string Pin { get; init; } = "1234";
@@ -119,6 +120,18 @@ public sealed class EstadoSistema
     public string UrlBase { get; init; } = "";
     public int PuertoDns { get; init; }
     public List<Adaptador> Adaptadores { get; init; } = new();
+
+    // Cierre de operacion
+    public string EstadoCierre { get; init; } = "abierta";
+    public bool OperacionAbierta => EstadoCierre == "abierta";
+    public bool OperacionCerrada => EstadoCierre == "cerrada";
+    public bool OperacionEntregada => EstadoCierre == "entregada";
+    public bool OperacionPurgada => EstadoCierre == "purgada";
+    public string? Receptor { get; init; }
+    public string? ArchivoCsv { get; init; }
+    public bool PuedePurgar { get; init; }
+    public string? MotivoBloqueoPurga { get; init; }
+    public int DiasFaltan { get; init; }
 
     // Modo de red
     public string Modo { get; init; } = "router";
@@ -152,6 +165,8 @@ public sealed class EstadoSistema
             ? c : default;
         var ap = raiz.TryGetProperty("puntoAcceso", out var pa) && pa.ValueKind == JsonValueKind.Object
             ? pa : default;
+        var ci = raiz.TryGetProperty("cierre", out var cc) && cc.ValueKind == JsonValueKind.Object
+            ? cc : default;
         var portal = raiz.TryGetProperty("portal", out var p) && p.ValueKind == JsonValueKind.Object
             ? p : default;
 
@@ -170,6 +185,8 @@ public sealed class EstadoSistema
         return new EstadoSistema
         {
             Ip = raiz.GetProperty("ip").GetString() ?? "",
+            CarpetaDatos = raiz.TryGetProperty("carpetaDatos", out var cd)
+                ? cd.GetString() ?? "" : "",
             IpFijada = raiz.GetProperty("ipFijada").GetBoolean(),
             Puesto = raiz.GetProperty("puesto").GetString() ?? "",
             Pin = raiz.GetProperty("pin").GetString() ?? "1234",
@@ -187,6 +204,15 @@ public sealed class EstadoSistema
                 ? portal.GetProperty("urlBase").GetString() ?? "" : "",
             PuertoDns = portal.ValueKind == JsonValueKind.Object ? Entero(portal, "puertoDns") : 0,
             Adaptadores = adaptadores,
+
+            EstadoCierre = Texto(ci, "estado", "abierta"),
+            Receptor = Texto(ci, "receptor") is { Length: > 0 } rc ? rc : null,
+            ArchivoCsv = Texto(ci, "archivoCsv") is { Length: > 0 } ac ? ac : null,
+            PuedePurgar = ci.ValueKind == JsonValueKind.Object &&
+                          ci.TryGetProperty("puedePurgar", out var pp) &&
+                          pp.ValueKind == JsonValueKind.True,
+            MotivoBloqueoPurga = Texto(ci, "motivoBloqueo") is { Length: > 0 } mb ? mb : null,
+            DiasFaltan = Entero(ci, "diasFaltan"),
 
             Modo = raiz.TryGetProperty("modo", out var m) ? m.GetString() ?? "router" : "router",
             NombreBase = Texto(ap, "nombreBase", "SOS-AYUDA"),

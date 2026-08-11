@@ -168,6 +168,39 @@
           <Button x:Name="btnVaciar" Style="{StaticResource BotonPeligro}"
                   Content="Vaciar la base de datos" Click="Vaciar_Click"/>
 
+          <TextBlock Text="CIERRE DE OPERACION" Style="{StaticResource Titulo}"/>
+          <Border Background="{StaticResource Superficie}" CornerRadius="6"
+                  BorderBrush="{StaticResource Borde}" BorderThickness="1"
+                  Padding="9,7" Margin="0,0,0,7">
+            <TextBlock x:Name="txtEstadoCierre" TextWrapping="Wrap" FontSize="11"
+                       Foreground="{StaticResource TextoSuave}" Text="Operacion abierta"/>
+          </Border>
+
+          <Button x:Name="btnCerrarOperacion" Style="{StaticResource BotonBase}"
+                  Content="1.  Cerrar operacion y exportar el censo" Click="CerrarOperacion_Click"/>
+
+          <StackPanel x:Name="zonaEntrega" Visibility="Collapsed">
+            <TextBlock Text="Entregado a (organismo o persona)" FontSize="11"
+                       Foreground="{StaticResource TextoSuave}" Margin="2,4,0,3"/>
+            <TextBox x:Name="cajaReceptor" Margin="0,0,0,5"/>
+            <TextBlock Text="Contacto" FontSize="11"
+                       Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+            <TextBox x:Name="cajaContacto" Margin="0,0,0,5"/>
+            <TextBlock Text="Medio de entrega" FontSize="11"
+                       Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+            <TextBox x:Name="cajaMedio" Margin="0,0,0,7"/>
+            <Button Style="{StaticResource BotonBase}" Content="2.  Registrar la entrega"
+                    Click="RegistrarEntrega_Click"/>
+          </StackPanel>
+
+          <StackPanel x:Name="zonaPurga" Visibility="Collapsed">
+            <TextBlock Text="Motivo (solo si purgas antes de plazo)" FontSize="11"
+                       Foreground="{StaticResource TextoSuave}" Margin="2,4,0,3"/>
+            <TextBox x:Name="cajaMotivoPurga" Margin="0,0,0,7"/>
+            <Button x:Name="btnPurgar" Style="{StaticResource BotonPeligro}"
+                    Content="3.  Destruir los datos personales" Click="Purgar_Click"/>
+          </StackPanel>
+
           <TextBlock Text="VERIFICAR" Style="{StaticResource Titulo}"/>
           <Button Style="{StaticResource BotonBase}" Content="Diagnostico previo al despliegue" Click="Diagnostico_Click"/>
           <Button Style="{StaticResource BotonBase}" Content="Prueba de humo end-to-end" Click="Humo_Click"/>
@@ -180,6 +213,9 @@
                   Content="Portal (lo que ve la gente)" Click="AbrirPortal_Click" IsEnabled="False"/>
           <Button x:Name="btnAbrirCartel" Style="{StaticResource BotonBase}"
                   Content="Cartel para imprimir" Click="AbrirCartel_Click" IsEnabled="False"/>
+          <Button Style="{StaticResource BotonBase}" Content="Abrir la carpeta de datos"
+                  Click="AbrirDatos_Click"
+                  ToolTip="Ahi estan el censo, los respaldos y la constancia de cierre."/>
 
         </StackPanel>
       </ScrollViewer>

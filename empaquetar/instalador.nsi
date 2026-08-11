@@ -10,20 +10,21 @@
 !include "MUI2.nsh"
 
 !define NOMBRE     "SOS Conectate Pide Ayuda"
-!define VERSION    "1.1.0"
+!define VERSION    "1.2.0"
 !define CARPETA    "salida\SOS.Conectate.PideAyuda"
 
 Name              "${NOMBRE}"
 OutFile           "salida\SOS.Conectate.PideAyuda-Setup.exe"
 Unicode           true
-; Se instala fuera de Archivos de programa a proposito: el operador tiene que
-; poder llegar facil a la carpeta datos\ para respaldar el censo.
-InstallDir        "C:\SOS.Conectate.PideAyuda"
+; El PROGRAMA va a Archivos de programa y los DATOS a ProgramData. Antes se
+; instalaba todo junto en C:\SOS.Conectate.PideAyuda, que ademas es la carpeta
+; donde se desarrolla: instalar encima habria machacado el codigo fuente.
+InstallDir        "$PROGRAMFILES64\SOS Conectate Pide Ayuda"
 InstallDirRegKey  HKLM "Software\SOSConectate" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-VIProductVersion "1.1.0.0"
+VIProductVersion "1.2.0.0"
 VIAddVersionKey  "ProductName"     "${NOMBRE}"
 VIAddVersionKey  "FileDescription" "Portal cautivo de emergencia"
 VIAddVersionKey  "FileVersion"     "${VERSION}"
@@ -58,9 +59,27 @@ Section "Sistema completo" Principal
   SetOutPath "$INSTDIR"
   File /r "${CARPETA}\*.*"
 
+  ; Con contexto "all", $APPDATA es C:\ProgramData: el sitio de Windows para
+  ; datos de aplicacion compartidos entre usuarios. Es donde va el censo.
+  SetShellVarContext all
+  CreateDirectory "$APPDATA\SOS.Ayuda.WiFi"
+
+  ; Esta marca es lo que le dice al programa que es una INSTALACION y que los
+  ; datos van a ProgramData, no junto al ejecutable. La version portatil (el
+  ; ZIP) no la lleva, y por eso guarda los datos a su lado.
+  FileOpen $0 "$INSTDIR\.instalado" w
+  FileWrite $0 "Instalado el ${__DATE__} ${__TIME__}$\r$\n"
+  FileWrite $0 "Los datos (censo, respaldos, configuracion) viven en:$\r$\n"
+  FileWrite $0 "$APPDATA\SOS.Ayuda.WiFi$\r$\n"
+  FileClose $0
+
   CreateDirectory "$SMPROGRAMS\${NOMBRE}"
   CreateShortcut "$SMPROGRAMS\${NOMBRE}\Panel de mando.lnk" "$INSTDIR\PanelSOS.exe"
   CreateShortcut "$SMPROGRAMS\${NOMBRE}\Guia de despliegue.lnk" "$INSTDIR\DESPLIEGUE.md"
+  ; Acceso directo a los datos: el operador tiene que poder llegar rapido a los
+  ; respaldos y al CSV sin saber que existe ProgramData.
+  CreateShortcut "$SMPROGRAMS\${NOMBRE}\Carpeta de datos (censo y respaldos).lnk" \
+                 "$APPDATA\SOS.Ayuda.WiFi"
   CreateShortcut "$SMPROGRAMS\${NOMBRE}\Desinstalar.lnk" "$INSTDIR\Desinstalar.exe"
   CreateShortcut "$DESKTOP\SOS Panel de mando.lnk" "$INSTDIR\PanelSOS.exe"
 
@@ -91,8 +110,11 @@ SectionEnd
 
 ; ---------------------------------------------------------------------
 Section "Uninstall"
-  ; La carpeta datos\ NO se toca: ahi esta el censo, y borrarlo por accidente
-  ; seria perder el registro de personas.
+  ; ProgramData\SOS.Ayuda.WiFi NO se toca: ahi esta el censo. Borrarlo aqui
+  ; seria destruir datos de victimas sin constancia; para eso esta el cierre
+  ; de operacion guiado, que exporta, registra la entrega y deja constancia.
+  SetShellVarContext all
+  Delete "$INSTDIR\.instalado"
   Delete "$INSTDIR\PanelSOS.exe"
   Delete "$INSTDIR\*.bat"
   Delete "$INSTDIR\*.md"
@@ -121,5 +143,5 @@ Section "Uninstall"
   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\SOSConectate"
 
   MessageBox MB_OK|MB_ICONINFORMATION \
-    "Se desinstalo el programa.$\n$\nLa carpeta datos\ NO se borro: ahi esta el censo.$\nBorrala a mano cuando ya lo hayas entregado."
+    "Se desinstalo el programa.$\n$\nEL CENSO NO SE BORRO. Sigue en:$\n$APPDATA\SOS.Ayuda.WiFi$\n$\nSi la operacion termino, usa el cierre guiado del panel antes de borrarlo: exporta, registra a quien se entrego y deja constancia."
 SectionEnd

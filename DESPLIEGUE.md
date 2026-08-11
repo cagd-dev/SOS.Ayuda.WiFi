@@ -379,14 +379,50 @@ brigada que unas coordenadas imprecisas.
 
 ## 7. Los datos de las personas
 
-`datos/sos.sqlite3` contiene nombres, cédulas, teléfonos y ubicaciones de
-víctimas. Trátalo como lo que es.
+La base contiene nombres, cédulas, teléfonos y ubicaciones de víctimas. Trátala
+como lo que es.
 
-- **Respalda** la carpeta `datos/` a una USB al terminar cada jornada.
-- **Exporta a CSV** desde la consola y entrégalo a la autoridad competente
-  (Defensa Civil, Cruz Roja, UNGRD, alcaldía).
-- **Borra** la base cuando la operación termine y los datos ya estén entregados.
+**Dónde está**, según cómo lo hayas puesto:
+
+| Forma de uso | Carpeta de datos |
+|---|---|
+| Instalado con el `.exe` | `C:\ProgramData\SOS.Ayuda.WiFi` |
+| Portátil (ZIP en una USB) | `datos\` junto al programa |
+
+El panel te la abre con el botón **"Abrir la carpeta de datos"**, y hay un acceso
+directo en el menú inicio. No hace falta que recuerdes la ruta.
+
+Durante la operación:
+
+- **Respalda** cada jornada y copia a una USB. El respaldo se verifica solo.
 - No publiques la lista completa en redes sociales.
+
+### Cuando la operación termine: el cierre guiado
+
+No borres la carpeta a mano. El panel tiene un **cierre de operación** en tres
+pasos que deja constancia de lo que se hizo:
+
+**1. Cerrar la operación.** Genera el censo definitivo en CSV, un respaldo
+verificado y la huella SHA-256 del archivo. Ese CSV es el que se entrega.
+
+**2. Registrar la entrega.** Anota a quién se lo diste (Defensa Civil, Cruz
+Roja, UNGRD, alcaldía), su contacto y por qué medio. Es obligatorio decir a
+quién: es lo que queda cuando los datos ya no existan.
+
+**3. Destruir los datos personales.** Solo se habilita **30 días después de la
+entrega**, por si la autoridad necesita una aclaración. Se puede hacer antes,
+pero exige escribir un motivo que queda registrado.
+
+Al purgar se borran base, respaldos y CSV, y queda
+**`CONSTANCIA-DE-CIERRE.txt`**: cuántas personas hubo, a quién se entregó el
+archivo, su huella digital y quién destruyó los datos.
+
+> **Guarda esa constancia.** Es tu prueba de que los datos se entregaron a quien
+> correspondía y se destruyeron después — y no contiene ni un dato personal, así
+> que la puedes archivar sin problema.
+
+El desinstalador **no borra el censo**: destruir datos de víctimas sin
+constancia sería justo lo contrario de lo que busca este flujo.
 
 ---
 

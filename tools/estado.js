@@ -58,8 +58,31 @@ function portal() {
 
 const guardados = ajustes.leer();
 
+function estadoCierre() {
+  try {
+    const cierre = require('../src/cierre');
+    const actual = cierre.leer();
+    const veredicto = cierre.puedePurgar(actual);
+    return {
+      estado: actual.estado,
+      personas: actual.personas ?? null,
+      archivoCsv: actual.archivoCsv ?? null,
+      huellaCsv: actual.huellaCsv ?? null,
+      receptor: actual.entrega?.receptor ?? null,
+      entregadaEn: actual.entrega?.fecha ?? null,
+      purgadaEn: actual.purga?.fecha ?? null,
+      puedePurgar: veredicto.puede,
+      motivoBloqueo: veredicto.motivo ?? null,
+      diasFaltan: veredicto.faltan ?? 0,
+    };
+  } catch {
+    return { estado: 'abierta', puedePurgar: false };
+  }
+}
+
 console.log(JSON.stringify({
   modo: config.modo,
+  cierre: estadoCierre(),
   // La capacidad de la tarjeta NO se comprueba aqui: lanza netsh y esto se
   // consulta cada pocos segundos. Va en tools/punto-acceso.js, bajo demanda.
   puntoAcceso: {
@@ -72,6 +95,7 @@ console.log(JSON.stringify({
     desde: config.puntoAcceso.desde,
     hasta: config.puntoAcceso.hasta,
   },
+  carpetaDatos: config.carpetaDatos,
   ip: guardados.ip || config.ip,
   ipFijada: !!guardados.ip,
   puesto: guardados.puesto || config.nombrePuesto,

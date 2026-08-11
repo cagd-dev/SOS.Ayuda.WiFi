@@ -154,6 +154,8 @@ public partial class MainWindow : Window
         if (!cajaClaveRed.IsFocused) cajaClaveRed.Text = _estado.Clave;
         _pintandoModo = false;
 
+        PintarCierre();
+
         zonaPuntoAcceso.Visibility = listaModo.SelectedIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
         zonaIpServidor.Visibility = listaModo.SelectedIndex == 1 ? Visibility.Collapsed : Visibility.Visible;
         if (!cajaNombreRed.IsFocused && !cajaClaveRed.IsFocused) RedCambiada(this, new RoutedEventArgs());
@@ -179,7 +181,7 @@ public partial class MainWindow : Window
             : $"IP del servidor: {_estado.Ip}{(_estado.IpFijada ? " (fijada)" : " (automatica)")}   ·   portal detenido";
 
         txtPieDerecha.Text =
-            $"{(_estado.Certificado ? "certificado GPS listo" : "certificado GPS se emite al arrancar")}" +
+            $"datos en {_estado.CarpetaDatos}" +
             $"   ·   {(Proyecto.EsAdministrador() ? "Administrador" : "sin elevar")}";
     }
 
@@ -457,6 +459,121 @@ public partial class MainWindow : Window
     }
 
     /* ---------------------------------------------------------------- */
+    /* Cierre de operacion                                               */
+    /* ---------------------------------------------------------------- */
+
+    private void PintarCierre()
+    {
+        var abierta   = _estado.OperacionAbierta;
+        var cerrada   = _estado.OperacionCerrada;
+        var entregada = _estado.OperacionEntregada;
+        var purgada   = _estado.OperacionPurgada;
+
+        txtEstadoCierre.Text = _estado.EstadoCierre switch
+        {
+            "cerrada"   => $"Censo exportado ({_estado.ArchivoCsv}). Falta registrar a quien se entrego.",
+            "entregada" => $"Entregado a {_estado.Receptor}. " +
+                           (_estado.PuedePurgar
+                               ? "Plazo cumplido: ya se pueden destruir los datos."
+                               : $"Faltan {_estado.DiasFaltan} dia(s) del plazo de conservacion."),
+            "purgada"   => "Datos personales destruidos. La constancia esta en " +
+                           "datos\\CONSTANCIA-DE-CIERRE.txt",
+            _           => "Operacion abierta. Al terminar, cierrala para exportar el censo.",
+        };
+
+        var portalActivo = _estado.PortalActivo || _nodo.ServidorActivo;
+        btnCerrarOperacion.IsEnabled = abierta && !portalActivo && !_ocupado;
+        zonaEntrega.Visibility = cerrada ? Visibility.Visible : Visibility.Collapsed;
+        zonaPurga.Visibility   = entregada ? Visibility.Visible : Visibility.Collapsed;
+        btnPurgar.IsEnabled = entregada && !portalActivo && !_ocupado;
+
+        if (purgada) btnCerrarOperacion.Visibility = Visibility.Collapsed;
+    }
+
+    private async void CerrarOperacion_Click(object sender, RoutedEventArgs e)
+    {
+        if (_estado.PortalActivo || _nodo.ServidorActivo)
+        {
+            MessageBox.Show("Deten el portal antes de cerrar la operacion.",
+                "Panel SOS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var r = MessageBox.Show(
+            $"Se genera el censo definitivo con las {_estado.Personas} persona(s) " +
+            "registradas y un respaldo verificado.\n\n" +
+            "Ese CSV es el que se entrega a la autoridad competente.\n\n¿Cerrar la operacion?",
+            "Cerrar operacion", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (r != MessageBoxResult.Yes) return;
+
+        await CorrerAsync("Cerrando la operacion", Path.Combine("tools", "cierre.js"), "cerrar");
+    }
+
+    private async void RegistrarEntrega_Click(object sender, RoutedEventArgs e)
+    {
+        var receptor = cajaReceptor.Text.Trim();
+        if (receptor.Length < 3)
+        {
+            MessageBox.Show("Escribe a quien se entrego el censo: el organismo o la persona.\n\n" +
+                            "Es lo que queda en la constancia cuando los datos ya no existan.",
+                "Panel SOS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        await CorrerAsync("Registrando la entrega", Path.Combine("tools", "cierre.js"),
+            "entregar", receptor, cajaContacto.Text.Trim(), cajaMedio.Text.Trim());
+    }
+
+    private async void Purgar_Click(object sender, RoutedEventArgs e)
+    {
+        if (_estado.PortalActivo || _nodo.ServidorActivo)
+        {
+            MessageBox.Show("Deten el portal antes de destruir los datos.",
+                "Panel SOS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var motivo = cajaMotivoPurga.Text.Trim();
+        if (!_estado.PuedePurgar && motivo.Length < 5)
+        {
+            MessageBox.Show(
+                $"{_estado.MotivoBloqueoPurga}\n\n" +
+                "Si necesitas destruirlos igualmente, escribe el motivo en el campo " +
+                "de arriba. Quedara anotado en la constancia.",
+                "Panel SOS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Doble confirmacion: esto es irreversible y borra datos de victimas.
+        var r = MessageBox.Show(
+            "ESTO DESTRUYE LOS DATOS PERSONALES Y NO SE PUEDE DESHACER.\n\n" +
+            "Se borran la base de datos, los respaldos y las exportaciones CSV.\n\n" +
+            "Queda una constancia que NO contiene datos personales: dice cuantas " +
+            "personas hubo, a quien se entrego el archivo y su huella digital.\n\n" +
+            "¿Continuar?",
+            "Destruir los datos personales", MessageBoxButton.YesNo, MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (r != MessageBoxResult.Yes) return;
+
+        var r2 = MessageBox.Show(
+            $"Confirma por ultima vez.\n\n¿Ya entregaste el censo a {_estado.Receptor}?",
+            "Ultima confirmacion", MessageBoxButton.YesNo, MessageBoxImage.Stop,
+            MessageBoxResult.No);
+        if (r2 != MessageBoxResult.Yes) return;
+
+        // Quien purga queda en la constancia. El usuario de Windows es mas
+        // fiable que un campo escrito a mano: nadie lo rellena con prisa.
+        var quien = $"{Environment.UserName} ({Environment.MachineName})";
+
+        string[] argumentos = string.IsNullOrEmpty(motivo)
+            ? new string[] { "purgar", quien }
+            : new string[] { "purgar", quien, motivo };
+
+        await CorrerAsync("Destruyendo los datos personales",
+            Path.Combine("tools", "cierre.js"), argumentos);
+    }
+
+    /* ---------------------------------------------------------------- */
     /* Datos y verificacion                                              */
     /* ---------------------------------------------------------------- */
 
@@ -570,6 +687,18 @@ public partial class MainWindow : Window
     private void AbrirOperador_Click(object sender, RoutedEventArgs e) => Abrir($"{_estado.UrlBase}/operador.html");
     private void AbrirPortal_Click(object sender, RoutedEventArgs e) => Abrir(_estado.UrlBase);
     private void AbrirCartel_Click(object sender, RoutedEventArgs e) => Abrir($"{_estado.UrlBase}/cartel.html");
+
+    private void AbrirDatos_Click(object sender, RoutedEventArgs e)
+    {
+        // En una instalacion los datos NO estan junto al programa, sino en
+        // ProgramData. Sin este boton el operador no sabria donde buscarlos.
+        var carpeta = string.IsNullOrWhiteSpace(_estado.CarpetaDatos)
+            ? Path.Combine(Proyecto.Raiz, "datos")
+            : _estado.CarpetaDatos;
+
+        try { Directory.CreateDirectory(carpeta); } catch { /* ya existira o no se puede */ }
+        Abrir(carpeta);
+    }
 
     private void Abrir(string url)
     {

@@ -5,6 +5,58 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.2.0] — 2026-08-11
+
+### Añadido
+
+- **Cierre de operación guiado.** Hasta ahora los datos de las víctimas se
+  quedaban en el equipo indefinidamente: recogerlos está justificado por la
+  emergencia, conservarlos para siempre no. Es una máquina de estados que solo
+  avanza:
+
+  `ABIERTA → CERRADA → ENTREGADA → PURGADA`
+
+  1. **Cerrar** genera el censo definitivo en CSV, un respaldo verificado y la
+     huella SHA-256 del archivo.
+  2. **Registrar la entrega** anota a quién se entregó, cómo y cuándo. Es
+     obligatorio decir a quién.
+  3. **Purgar** destruye base, respaldos y exportaciones. Solo se permite tras
+     un plazo de conservación de 30 días desde la entrega — o antes, con un
+     motivo escrito que queda registrado.
+
+- **La constancia sobrevive a la purga y no contiene ni un dato personal.**
+  Guarda cuántas personas hubo, a quién se entregó el archivo, su huella
+  digital y quién destruyó los datos. Es lo que permite responder «¿qué pasó
+  con esos datos?» cuando ya no existen. Hay pruebas que verifican que no se
+  filtran nombres, cédulas ni ubicaciones.
+- El panel guía los tres pasos y solo muestra el siguiente. La purga pide doble
+  confirmación y exige el portal detenido.
+- `pruebas/cierre.js`: 27 pruebas propias, contra una carpeta temporal para no
+  tocar datos reales.
+
+### Corregido
+
+- **El instalador apuntaba a la carpeta de desarrollo.** `C:\SOS.Conectate.PideAyuda`
+  era a la vez el destino de instalación y donde vive el código fuente:
+  instalar encima habría machacado el proyecto.
+
+### Cambiado
+
+- **Programa y datos separados**, como manda Windows:
+  - Programa → `C:\Program Files\SOS Conectate Pide Ayuda`
+  - Datos → `C:\ProgramData\SOS.Ayuda.WiFi`
+
+  La versión portátil (el ZIP) sigue guardando los datos a su lado, que es lo
+  que se espera de algo que va en una USB. La diferencia la marca un archivo
+  `.instalado` que crea el instalador.
+- Acceso directo a la carpeta de datos en el menú inicio, y botón en el panel:
+  el operador tiene que poder llegar a los respaldos sin saber que existe
+  ProgramData.
+- El desinstalador **no borra el censo** y lo dice claramente, remitiendo al
+  cierre guiado.
+
+---
+
 ## [1.1.0] — 2026-08-11
 
 Endurecimiento tras una revisión de seguridad externa.
