@@ -91,6 +91,13 @@ if ($prueba -notmatch '"puesto"') {
 }
 Bien "tools\estado.js responde usando el Node empaquetado"
 
+# El favicon se sirve a los celulares: si falta, el portal pide /favicon.ico y
+# se lleva un 302 hacia si mismo en cada carga.
+if (-not (Test-Path (Join-Path $destino 'public\favicon.ico'))) {
+    throw "falta public\favicon.ico en el distribuible"
+}
+Bien "favicon presente"
+
 # ---------------------------------------------------------------- #
 $total = [math]::Round(((Get-ChildItem $destino -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
 Paso "Comprimiendo"

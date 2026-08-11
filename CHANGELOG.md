@@ -45,6 +45,18 @@ Endurecimiento tras una revisión de seguridad externa.
   envía `Referrer-Policy: no-referrer`. En un teléfono prestado, ese token en el
   historial entrega la sesión de otra persona.
 
+### Identidad visual
+
+- **Icono propio, generado por código** ([generar-icono.ps1](empaquetar/recursos/generar-icono.ps1)),
+  con ocho resoluciones dentro del `.ico` (16 a 256 px). Cada tamaño se dibuja
+  aparte en vez de reescalar uno grande, que es lo que hace que los iconos se
+  vean sucios en la barra de tareas. El detalle es progresivo: a 16 px solo el
+  pin, el agujero aparece a 48 y las ondas a 64. El texto se descartó: tres
+  letras a 16 px no se leen, solo ensucian.
+- El icono va embebido en el panel, en el instalador y como favicon del portal.
+- La portada del proyecto se usa en la página de bienvenida del instalador, en
+  el README y en la imagen de presentación del repositorio.
+
 ---
 
 ## [1.0.0] — 2026-08-11

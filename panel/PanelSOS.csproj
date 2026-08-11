@@ -18,6 +18,7 @@
          revienta al dibujar la primera linea. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\empaquetar\recursos\icono-sos.ico</ApplicationIcon>
   </PropertyGroup>
 
 </Project>

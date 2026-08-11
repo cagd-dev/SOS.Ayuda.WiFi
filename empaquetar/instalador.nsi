@@ -30,11 +30,18 @@ VIAddVersionKey  "FileVersion"     "${VERSION}"
 VIAddVersionKey  "LegalCopyright"  "Copyright (C) 2026 - Licencia GPL-3.0"
 
 !define MUI_ABORTWARNING
+!define MUI_ICON   "recursos\icono-sos.ico"
+!define MUI_UNICON "recursos\icono-sos.ico"
+
+; Franja lateral recortada de la portada del proyecto.
+!define MUI_WELCOMEFINISHPAGE_BITMAP    "recursos\instalador-lateral.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP  "recursos\instalador-lateral.bmp"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\PanelSOS.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Abrir el panel de mando"
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\DESPLIEGUE.md"
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "Leer la guia de despliegue"
 
+!insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "..\LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES

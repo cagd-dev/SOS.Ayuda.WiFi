@@ -1,5 +1,7 @@
 # SOS · Conéctate · Pide Ayuda
 
+![Puesto de mando de emergencia](empaquetar/recursos/portada-empaque.png)
+
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
 [![Versión](https://img.shields.io/badge/versi%C3%B3n-1.1.0-blue.svg)](CHANGELOG.md)
 [![Pruebas](https://img.shields.io/badge/pruebas-107%20OK-brightgreen.svg)](pruebas/humo.js)
