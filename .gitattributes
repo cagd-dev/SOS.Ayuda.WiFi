@@ -1,0 +1,27 @@
+# Normaliza los finales de linea en el repositorio.
+* text=auto eol=lf
+
+# Estos SI necesitan CRLF: con LF, cmd.exe se rompe de formas raras y dificiles
+# de diagnosticar (etiquetas no encontradas, variables mal expandidas).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.nsi text eol=crlf
+
+# Proyecto .NET: las herramientas de Windows esperan CRLF.
+*.csproj  text eol=crlf
+*.sln     text eol=crlf
+*.cs      text eol=crlf
+*.xaml    text eol=crlf
+*.manifest text eol=crlf
+
+# Binarios: que git no los toque.
+*.exe   binary
+*.dll   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.pem   binary
+*.sqlite3 binary
+*.7z    binary
+*.zip   binary

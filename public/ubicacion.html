@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Enviar mi ubicacion · SOS</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <div>
+    <div class="marca">ENVIAR MI <span>UBICACION</span></div>
+    <div class="sub">Canal seguro del puesto de mando</div>
+  </div>
+</header>
+
+<main class="envoltura">
+
+  <!-- Estado 1: listo para pedir el GPS -->
+  <section id="pasoPedir" class="tarjeta">
+    <div class="exito">Lo lograste. Esta es la ventana segura.</div>
+    <h1>Enviar mi ubicacion exacta</h1>
+    <p style="color:var(--texto-suave)">
+      Al tocar el boton, tu telefono te va a preguntar si permites compartir la
+      ubicacion. Responde <strong>Permitir</strong>.
+    </p>
+    <p style="color:var(--texto-suave)">
+      El GPS funciona sin internet. Puede tardar hasta medio minuto en fijar la
+      senal, sobre todo bajo techo.
+    </p>
+    <button type="button" class="boton" id="btnPedir">Permitir y enviar mi ubicacion</button>
+  </section>
+
+  <!-- Estado 2: buscando -->
+  <section id="pasoBuscando" class="tarjeta" hidden style="text-align:center">
+    <h1>Buscando satelites...</h1>
+    <p style="color:var(--texto-suave)">
+      Si puedes, acercate a una ventana o sal a un espacio abierto.
+      Esto puede tardar hasta 30 segundos.
+    </p>
+    <p class="codigo" id="contador">30</p>
+  </section>
+
+  <!-- Estado 3: enviada -->
+  <section id="pasoListo" class="tarjeta" hidden style="text-align:center">
+    <div class="exito" style="text-align:left">
+      <strong>Ubicacion enviada.</strong> El puesto de mando ya la tiene.
+    </div>
+    <p>Tus coordenadas</p>
+    <p><strong class="codigo" id="coordenadas" style="font-size:1.3rem">—</strong></p>
+    <p style="color:var(--texto-suave)" id="precision"></p>
+    <button type="button" class="boton secundario" id="btnReenviar">Enviar de nuevo (si te moviste)</button>
+    <p style="margin-top:1rem;color:var(--texto-suave);font-size:.9rem">
+      Ya puedes cerrar esta ventana y volver al chat.
+    </p>
+  </section>
+
+  <!-- Estado 4: fallo -->
+  <section id="pasoFallo" class="tarjeta" hidden>
+    <div class="error" id="mensajeFallo">No se pudo obtener la ubicacion.</div>
+    <div id="ayudaFallo"></div>
+    <button type="button" class="boton" id="btnReintentar">Reintentar</button>
+    <p style="margin-top:1rem;color:var(--texto-suave);font-size:.9rem">
+      Si no funciona, vuelve al chat y escribe la direccion con un punto de
+      referencia que se vea desde afuera. Sirve casi igual de bien.
+    </p>
+  </section>
+
+</main>
+
+<script src="/js/ubicacion.js"></script>
+</body>
+</html>

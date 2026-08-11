@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>SOS · Conectate · Pide Ayuda</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <div>
+    <div class="marca">SOS <span>·</span> CONECTATE <span>·</span> PIDE AYUDA</div>
+    <div class="sub" id="nombrePuesto">Red de emergencia</div>
+  </div>
+</header>
+
+<main class="envoltura">
+
+  <!-- "Ya te conocemos": aparece si reconocemos el telefono por su MAC.
+       Se rellena desde portal.js -->
+  <section id="bloqueReconocido" class="aviso reconocido" hidden></section>
+
+  <div id="avisoBienvenida" class="aviso">
+    Estas conectado a la red de emergencia. Registrate para que sepamos que estas aqui.
+  </div>
+
+  <!-- Aviso de uso responsable. Va ANTES del formulario a proposito: nadie
+       deberia poder decir que no sabia para que es esta red. -->
+  <section class="aviso fuerte">
+    <h2>Esto no es un juego</h2>
+    <ul>
+      <li>Aqui <strong>no hay internet</strong>. No entran redes sociales, ni WhatsApp,
+          ni llamadas. Esta red solo sirve para hablar con el puesto de mando.</li>
+      <li>Lo que escribas lo leen personas que estan <strong>coordinando rescates
+          reales</strong>. Un reporte falso manda una brigada al lugar equivocado y
+          le quita el turno a alguien que esta atrapado de verdad.</li>
+      <li>Todo queda <strong>registrado con fecha, hora y dispositivo</strong>, y el
+          censo se entrega a las autoridades de emergencia.</li>
+      <li>Si estas bien, <strong>registrate igual</strong>: tu registro le sirve a tu
+          familia para saber que estas vivo. Pero deja el chat libre para quien lo
+          necesita.</li>
+    </ul>
+  </section>
+
+  <!-- ============ REGISTRO ============ -->
+  <section id="pasoRegistro">
+    <form id="formRegistro" method="post" action="/api/registro" class="tarjeta">
+      <h1>Registrate</h1>
+      <p style="color:var(--texto-suave)">Con esto quedas en la lista de personas ubicadas y puedes escribirle al puesto de mando.</p>
+
+      <div id="errorRegistro" class="error" hidden></div>
+
+      <label class="campo">
+        <span class="etiqueta">Tu nombre completo <span class="obligatorio">*</span></span>
+        <input type="text" name="nombre" id="nombre" required autocomplete="name"
+               placeholder="Nombre y apellidos" enterkeyhint="next">
+      </label>
+
+      <fieldset style="border:0;padding:0;margin:0 0 1rem">
+        <legend class="etiqueta" style="padding:0;margin-bottom:.5rem">¿Como estas? <span class="obligatorio">*</span></legend>
+        <div class="estados" id="listaEstados">
+          <!-- se rellena desde /api/config; esto es el respaldo sin JS -->
+          <label class="estado-op" data-estado="bien">
+            <input type="radio" name="estado" value="bien" checked>
+            <span class="cuerpo"><span class="punto"></span><span class="texto">Estoy bien</span></span>
+          </label>
+          <label class="estado-op" data-estado="busca">
+            <input type="radio" name="estado" value="busca">
+            <span class="cuerpo"><span class="punto"></span><span class="texto">Busco a un familiar</span></span>
+          </label>
+          <label class="estado-op" data-estado="herido_leve">
+            <input type="radio" name="estado" value="herido_leve">
+            <span class="cuerpo"><span class="punto"></span><span class="texto">Herido leve</span></span>
+          </label>
+          <label class="estado-op" data-estado="herido_grave">
+            <input type="radio" name="estado" value="herido_grave">
+            <span class="cuerpo"><span class="punto"></span><span class="texto">Herido grave</span></span>
+          </label>
+          <label class="estado-op" data-estado="atrapado">
+            <input type="radio" name="estado" value="atrapado">
+            <span class="cuerpo"><span class="punto"></span><span class="texto">Atrapado / bajo escombros</span></span>
+          </label>
+        </div>
+      </fieldset>
+
+      <label class="campo">
+        <span class="etiqueta">¿Que necesitas ahora?</span>
+        <span class="chips" id="listaNecesidades">
+          <label class="chip"><input type="checkbox" name="necesidades" value="rescate"><span class="cuerpo">Rescate</span></label>
+          <label class="chip"><input type="checkbox" name="necesidades" value="medicina"><span class="cuerpo">Medicina</span></label>
+          <label class="chip"><input type="checkbox" name="necesidades" value="agua"><span class="cuerpo">Agua</span></label>
+          <label class="chip"><input type="checkbox" name="necesidades" value="comida"><span class="cuerpo">Comida</span></label>
+          <label class="chip"><input type="checkbox" name="necesidades" value="abrigo"><span class="cuerpo">Abrigo</span></label>
+          <label class="chip"><input type="checkbox" name="necesidades" value="transporte"><span class="cuerpo">Transporte</span></label>
+          <label class="chip"><input type="checkbox" name="necesidades" value="carga"><span class="cuerpo">Cargar celular</span></label>
+        </span>
+      </label>
+
+      <label class="campo">
+        <span class="etiqueta">¿Donde estas exactamente?</span>
+        <textarea name="ubicacion" id="ubicacion"
+                  placeholder="Barrio, calle, numero, punto de referencia... Ej: Barrio La Paz, calle 12 #4-30, al lado de la panaderia"></textarea>
+        <span id="zonaGps">
+          <button type="button" class="boton secundario chico" id="btnGps" style="margin-top:.5rem">
+            Usar mi ubicacion GPS
+          </button>
+          <span class="ayuda">El GPS funciona sin internet. Ayuda muchisimo a los rescatistas.</span>
+        </span>
+      </label>
+
+      <label class="campo">
+        <span class="etiqueta">¿Con quien estas?</span>
+        <textarea name="acompanantes" placeholder="Nombres de las personas que estan contigo, incluyendo ninos"></textarea>
+        <span class="ayuda">Asi quedan ubicados todos de una vez.</span>
+      </label>
+
+      <label class="campo">
+        <span class="etiqueta">Si buscas a alguien, ¿a quien?</span>
+        <textarea name="busca_a" placeholder="Nombre, edad y donde estaba la ultima vez"></textarea>
+      </label>
+
+      <details class="campo">
+        <summary style="cursor:pointer;font-weight:600;padding:.5rem 0">Datos adicionales (opcional)</summary>
+        <div style="padding-top:.75rem">
+          <label class="campo">
+            <span class="etiqueta">Cedula o documento</span>
+            <input type="text" name="documento" inputmode="numeric" autocomplete="off">
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Tu telefono</span>
+            <input type="tel" name="telefono" autocomplete="tel">
+          </label>
+          <label class="campo">
+            <span class="etiqueta">Edad</span>
+            <input type="number" name="edad" min="0" max="120" inputmode="numeric">
+          </label>
+          <label class="campo">
+            <span class="etiqueta">¿A quien avisamos por ti?</span>
+            <input type="text" name="contacto" placeholder="Nombre y telefono de un familiar">
+          </label>
+        </div>
+      </details>
+
+      <p class="declaracion">
+        Al registrarme declaro que <strong>lo que escribo es verdad</strong>, y entiendo
+        que con esta informacion se decide <strong>a quien se atiende primero</strong>.
+      </p>
+
+      <button type="submit" class="boton" id="btnRegistrar">Es verdad · Registrarme y pedir ayuda</button>
+
+      <button type="button" class="boton secundario" id="btnMostrarRecuperar" style="margin-top:.75rem">
+        Ya me registre antes, tengo mi codigo
+      </button>
+    </form>
+  </section>
+
+  <!-- ============ RECUPERAR SESION ============ -->
+  <section id="pasoRecuperar" hidden>
+    <div class="tarjeta">
+      <h1>Recuperar mi chat</h1>
+      <p style="color:var(--texto-suave)">Escribe el codigo que te dimos al registrarte.</p>
+      <div id="errorRecuperar" class="error" hidden></div>
+      <label class="campo">
+        <span class="etiqueta">Tu codigo</span>
+        <input type="text" id="codigoRecuperar" placeholder="A-4821" autocapitalize="characters" autocomplete="off">
+      </label>
+      <label class="campo">
+        <span class="etiqueta">Tu nombre</span>
+        <input type="text" id="nombreRecuperar" placeholder="Como te registraste" autocomplete="name">
+      </label>
+      <button type="button" class="boton" id="btnRecuperar">Entrar</button>
+      <button type="button" class="boton secundario" id="btnVolverRegistro" style="margin-top:.75rem">Volver</button>
+    </div>
+  </section>
+
+  <!-- ============ LISTO ============ -->
+  <section id="pasoListo" hidden>
+    <div class="tarjeta" style="text-align:center">
+      <div class="exito" style="text-align:left">Quedaste registrado. Ya sabemos que estas aqui.</div>
+      <p>Tu codigo es</p>
+      <p><strong class="codigo" id="codigoAsignado">—</strong></p>
+      <p style="color:var(--texto-suave)">Anotalo o tomale una foto. Con el recuperas tu chat si se te cierra.</p>
+
+      <div class="tarjeta" style="text-align:left;background:var(--superficie-2);margin:1.2rem 0">
+        <h2>Ayuda a que te encuentren</h2>
+        <p style="color:var(--texto-suave);font-size:.92rem">
+          Enviar tu ubicacion exacta le ahorra tiempo a los rescatistas. Son dos
+          toques y funciona sin internet.
+        </p>
+        <div id="zonaGpsListo"></div>
+      </div>
+
+      <a class="boton" id="enlaceChat" href="/chat.html">Abrir el chat con el puesto de mando</a>
+
+      <div id="zonaNavegador" style="text-align:left"></div>
+
+      <p class="ayuda" style="margin-top:1rem;color:var(--texto-suave);font-size:.85rem">
+        Si esta ventana se cierra sola, abre tu navegador y entra a
+        <strong id="urlManual">—</strong>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ DIRECTORIO ============ -->
+  <section class="tarjeta">
+    <h2>¿Buscas a alguien?</h2>
+    <p style="color:var(--texto-suave);font-size:.9rem">Mira si ya se registro en este punto.</p>
+    <input type="text" id="buscarDirectorio" placeholder="Nombre de la persona que buscas">
+    <div id="resultadoDirectorio" style="margin-top:.75rem"></div>
+  </section>
+
+</main>
+
+<script src="/js/gps-enlace.js"></script>
+<script src="/js/navegador.js"></script>
+<script src="/js/portal.js"></script>
+</body>
+</html>

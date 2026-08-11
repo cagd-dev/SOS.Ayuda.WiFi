@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Chat · Puesto de mando</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<div class="chat-envoltura">
+
+  <header class="cabecera">
+    <div style="flex:1;min-width:0">
+      <div class="marca" id="tituloChat">Puesto de mando</div>
+      <div class="sub">
+        <span id="miNombre">—</span> · <span id="miCodigo">—</span>
+        <span class="conexion muerta" id="estadoConexion">conectando</span>
+      </div>
+    </div>
+    <button type="button" class="boton secundario chico" id="btnEstado">Mi estado</button>
+  </header>
+
+  <!-- Panel plegable para cambiar el estado sin salir del chat -->
+  <!-- max-height + scroll propio: con los estados, las necesidades y el bloque
+       de GPS este panel es mas alto que un movil pequeno, y sin esto aplastaria
+       la lista de mensajes -->
+  <section id="panelEstado" class="tarjeta" hidden
+           style="margin:.75rem;border-radius:12px;flex:0 1 auto;max-height:60vh;overflow-y:auto">
+    <h2>¿Como estas ahora?</h2>
+    <div class="estados" id="listaEstados"></div>
+    <label class="campo" style="margin-top:1rem">
+      <span class="etiqueta">¿Que necesitas?</span>
+      <span class="chips" id="listaNecesidades"></span>
+    </label>
+    <label class="campo">
+      <span class="etiqueta">¿Donde estas?</span>
+      <textarea id="campoUbicacion" placeholder="Direccion o punto de referencia"></textarea>
+    </label>
+    <div id="zonaGpsChat" style="margin-bottom:1rem"></div>
+    <button type="button" class="boton" id="btnGuardarEstado">Guardar y avisar al puesto</button>
+  </section>
+
+  <!-- Aviso de mini-navegador: solo aparece si estamos en la ventanita del
+       portal cautivo, que puede cerrarse sola -->
+  <div id="zonaNavegador" style="padding:0 .75rem"></div>
+
+  <div class="chat-lista" id="listaMensajes">
+    <div class="burbuja sistema">Cargando tus mensajes...</div>
+  </div>
+
+  <p class="nota-uso">
+    Puesto de mando de emergencia · escribe solo informacion verdadera ·
+    todo queda registrado
+  </p>
+
+  <form class="chat-barra" id="formMensaje">
+    <textarea id="campoMensaje" rows="1" placeholder="Escribe aqui..." enterkeyhint="send"></textarea>
+    <button type="submit" class="boton" id="btnEnviar">Enviar</button>
+  </form>
+
+</div>
+
+<script src="/js/gps-enlace.js"></script>
+<script src="/js/navegador.js"></script>
+<script src="/js/chat.js"></script>
+</body>
+</html>

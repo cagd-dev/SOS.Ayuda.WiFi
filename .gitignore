@@ -1,0 +1,16 @@
+node_modules/
+datos/
+*.sqlite3
+*.sqlite3-journal
+*.log
+exportes/
+.env
+
+# Panel .NET
+panel/bin/
+panel/obj/
+panel/publicado/
+
+# Distribuible
+empaquetar/salida/
+runtime/

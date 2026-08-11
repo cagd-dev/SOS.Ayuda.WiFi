@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartel para imprimir · SOS</title>
+<style>
+  /* Pensado para imprimir en A4 y pegar en postes, carpas y entradas.
+     Fondo blanco a proposito: ahorra tinta y se lee a pleno sol. */
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 12mm;
+    font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    color: #000; background: #fff;
+  }
+  .hoja { max-width: 190mm; margin: 0 auto; text-align: center; }
+  h1 { font-size: 58pt; line-height: .95; margin: 0 0 4mm; letter-spacing: -2px; }
+  .lema { font-size: 20pt; font-weight: 700; margin-bottom: 8mm; }
+  .bloque {
+    border: 4mm solid #000; border-radius: 6mm;
+    padding: 6mm; margin-bottom: 6mm;
+  }
+  .rotulo { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+  .dato { font-size: 44pt; font-weight: 900; line-height: 1.1; word-break: break-all; }
+  .dato.chico { font-size: 30pt; }
+  ol { text-align: left; font-size: 17pt; line-height: 1.5; padding-left: 8mm; margin: 0; }
+  ol strong { background: #000; color: #fff; padding: 0 2mm; }
+  .bloque.advertencia { background: #000; color: #fff; }
+  .bloque.advertencia .rotulo { font-size: 20pt; letter-spacing: 3px; margin-bottom: 3mm; }
+  .texto-advertencia { font-size: 15pt; line-height: 1.35; margin: 0; }
+  .pie { font-size: 12pt; margin-top: 6mm; border-top: 1pt solid #000; padding-top: 3mm; }
+  .editable { outline: 2px dashed #999; outline-offset: 3px; }
+  .barra-control {
+    background: #111; color: #fff; padding: 10px 16px; text-align: center;
+    font-size: 14px; position: sticky; top: 0; z-index: 10;
+  }
+  .barra-control button {
+    font: inherit; padding: 8px 18px; margin-left: 10px; cursor: pointer;
+    border: 0; border-radius: 6px; background: #f78166; font-weight: 700;
+  }
+  @media print {
+    .barra-control { display: none; }
+    .editable { outline: none; }
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="barra-control">
+  Haz clic sobre el nombre del WiFi y la direccion para cambiarlos, luego imprime.
+  <button onclick="window.print()">Imprimir</button>
+</div>
+
+<div class="hoja">
+  <h1>WiFi GRATIS<br>DE EMERGENCIA</h1>
+  <p class="lema">Registrate para que sepamos que estas bien</p>
+
+  <div class="bloque">
+    <div class="rotulo">Conectate a la red</div>
+    <div class="dato editable" contenteditable="true" id="nombreRed">SOS-AYUDA</div>
+    <div class="rotulo" style="margin-top:3mm" id="rotuloClave">SIN CLAVE</div>
+    <div class="dato editable" id="claveRed" contenteditable="true" style="display:none"></div>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo">Si no abre solo, entra en tu navegador a</div>
+    <div class="dato chico editable" contenteditable="true">http://192.168.1.100</div>
+  </div>
+
+  <ol>
+    <li>Abre los ajustes de <strong>WiFi</strong> del celular.</li>
+    <li>Conectate a la red de arriba. No pide clave.</li>
+    <li>Se abre solo el formulario. Si te pregunta
+        <strong>"la red no tiene internet, seguir conectado?"</strong>
+        responde que <strong>SI</strong>.</li>
+    <li>Escribe tu nombre y como estas.</li>
+    <li>Guarda el <strong>codigo</strong> que te damos.</li>
+  </ol>
+
+  <div class="bloque advertencia">
+    <div class="rotulo">Esto no es un juego</div>
+    <p class="texto-advertencia">
+      Un reporte falso <strong>manda una brigada al lugar equivocado</strong>
+      y le quita el turno a alguien que esta atrapado de verdad.
+      Todo queda registrado y se entrega a las autoridades.
+    </p>
+  </div>
+
+  <p class="pie">
+    <strong>No hay internet en esta red.</strong> Solo sirve para hablar con el puesto de mando
+    y dejar constancia de que estas aqui. No escribas claves ni datos bancarios.
+  </p>
+</div>
+
+<script>
+  // Si abrimos el cartel desde el propio servidor, rellenamos los datos reales.
+  fetch('/api/config', { headers: { Accept: 'application/json' } })
+    .then((r) => r.json())
+    .then((config) => {
+      document.querySelectorAll('.dato.chico')[0].textContent = config.urlBase;
+
+      if (!config.red) return;
+      document.getElementById('nombreRed').textContent = config.red.ssid;
+
+      // En modo propio la red lleva clave a la fuerza (Windows no permite red
+      // hospedada abierta). Si la clave va dentro del nombre, no hace falta
+      // repetirla: ya se lee arriba.
+      if (config.red.clave && !config.red.claveEnNombre) {
+        document.getElementById('rotuloClave').textContent = 'CLAVE';
+        const caja = document.getElementById('claveRed');
+        caja.style.display = '';
+        caja.textContent = config.red.clave;
+      } else if (config.red.claveEnNombre) {
+        document.getElementById('rotuloClave').textContent =
+          'LA CLAVE ESTA EN EL NOMBRE DE LA RED';
+      }
+    })
+    .catch(() => { /* abierto como archivo suelto: se edita a mano */ });
+</script>
+
+</body>
+</html>

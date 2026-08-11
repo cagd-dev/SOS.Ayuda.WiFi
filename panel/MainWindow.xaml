@@ -1,0 +1,229 @@
+<Window x:Class="PanelSOS.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SOS · Conectate · Pide Ayuda — Panel de mando"
+        Height="780" Width="1200" MinHeight="620" MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Fondo}"
+        Foreground="{StaticResource Texto}">
+
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- ================= CABECERA ================= -->
+    <Border Grid.Row="0" Background="{StaticResource Superficie}"
+            BorderBrush="{StaticResource Borde}" BorderThickness="0,0,0,1" Padding="16,12">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0">
+          <TextBlock FontSize="17" FontWeight="Bold">
+            <Run Text="SOS"/>
+            <Run Text="·" Foreground="#F78166"/>
+            <Run Text="CONECTATE"/>
+            <Run Text="·" Foreground="#F78166"/>
+            <Run Text="PIDE AYUDA"/>
+          </TextBlock>
+          <TextBlock x:Name="txtPuestoCabecera" Foreground="{StaticResource TextoSuave}"
+                     FontSize="12" Text="Puesto de Mando SOS"/>
+        </StackPanel>
+
+        <WrapPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Center">
+          <Border x:Name="chipPortal" CornerRadius="12" Padding="12,5" Margin="0,0,8,0"
+                  Background="#2D1214">
+            <TextBlock x:Name="txtPortal" Text="PORTAL DETENIDO"
+                       Foreground="#F85149" FontWeight="Bold" FontSize="12"/>
+          </Border>
+          <Border x:Name="chipDns" CornerRadius="12" Padding="12,5" Margin="0,0,8,0"
+                  Background="{StaticResource Superficie2}" Visibility="Collapsed">
+            <TextBlock x:Name="txtDns" Text="DNS" FontSize="12" FontWeight="Bold"/>
+          </Border>
+          <Border x:Name="chipPin" CornerRadius="12" Padding="12,5"
+                  Background="#2B2410" Visibility="Collapsed">
+            <TextBlock Text="PIN DE FABRICA — CAMBIALO"
+                       Foreground="#F2D98A" FontWeight="Bold" FontSize="12"/>
+          </Border>
+        </WrapPanel>
+
+        <Button Grid.Column="2" x:Name="btnAdmin" Style="{StaticResource BotonBase}"
+                Content="Reiniciar como Administrador" Margin="0" Visibility="Collapsed"
+                Click="ReiniciarComoAdmin_Click"/>
+      </Grid>
+    </Border>
+
+    <!-- ================= CUERPO ================= -->
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="345"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Columna de acciones -->
+      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
+                    Background="{StaticResource Fondo}" Padding="14,10,10,14">
+        <StackPanel>
+
+          <!-- Resumen del censo -->
+          <Border Background="{StaticResource Superficie}" CornerRadius="8"
+                  BorderBrush="{StaticResource Borde}" BorderThickness="1" Padding="10" Margin="0,0,0,4">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel Grid.Column="0">
+                <TextBlock x:Name="txtTotal" Text="0" FontSize="20" FontWeight="Bold" HorizontalAlignment="Center"/>
+                <TextBlock Text="TOTAL" FontSize="9" Foreground="{StaticResource TextoSuave}" HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock x:Name="txtAtrapados" Text="0" FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource Critico}" HorizontalAlignment="Center"/>
+                <TextBlock Text="ATRAPADOS" FontSize="9" Foreground="{StaticResource TextoSuave}" HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock x:Name="txtHeridos" Text="0" FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource Alerta}" HorizontalAlignment="Center"/>
+                <TextBlock Text="HERIDOS" FontSize="9" Foreground="{StaticResource TextoSuave}" HorizontalAlignment="Center"/>
+              </StackPanel>
+              <StackPanel Grid.Column="3">
+                <TextBlock x:Name="txtSinLeer" Text="0" FontSize="20" FontWeight="Bold"
+                           Foreground="{StaticResource Info}" HorizontalAlignment="Center"/>
+                <TextBlock Text="SIN LEER" FontSize="9" Foreground="{StaticResource TextoSuave}" HorizontalAlignment="Center"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <TextBlock Text="PORTAL" Style="{StaticResource Titulo}"/>
+          <Button x:Name="btnIniciar" Style="{StaticResource BotonPrincipal}"
+                  Content="▶  Iniciar el portal" Click="Iniciar_Click"
+                  ToolTip="Puertos reales 80 / 443 / 53. Es el modo de operacion."/>
+          <Button x:Name="btnIniciarPruebas" Style="{StaticResource BotonBase}"
+                  Content="Iniciar en puertos altos (pruebas)" Click="IniciarPruebas_Click"
+                  ToolTip="8080 / 8443 / 5354. No necesita Administrador."/>
+          <Button x:Name="btnIniciarDiag" Style="{StaticResource BotonBase}"
+                  Content="Iniciar en modo diagnostico DNS" Click="IniciarDiagnostico_Click"
+                  ToolTip="Registra cada consulta DNS. Uselo si el portal no se abre solo en los celulares."/>
+          <Button x:Name="btnDetener" Style="{StaticResource BotonPeligro}"
+                  Content="■  Detener el portal" Click="Detener_Click" IsEnabled="False"/>
+
+          <TextBlock Text="MODO DE RED" Style="{StaticResource Titulo}"/>
+          <ComboBox x:Name="listaModo" Margin="0,0,0,7" SelectionChanged="Modo_Cambiado">
+            <ComboBoxItem Content="Router externo  (recomendado)"/>
+            <ComboBoxItem Content="Punto de acceso propio  (WiFi de este equipo)"/>
+          </ComboBox>
+
+          <StackPanel x:Name="zonaPuntoAcceso" Visibility="Collapsed">
+            <TextBlock Text="Nombre de la red" FontSize="11" Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+            <TextBox x:Name="cajaNombreRed" Margin="0,0,0,7" TextChanged="RedCambiada"/>
+            <TextBlock Text="Clave (8 o mas, mejor solo digitos)" FontSize="11" Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+            <TextBox x:Name="cajaClaveRed" Margin="0,0,0,5" TextChanged="RedCambiada"/>
+            <CheckBox x:Name="claveDentroDelNombre" Content="Poner la clave dentro del nombre de la red"
+                      IsChecked="True" Foreground="{StaticResource TextoSuave}" FontSize="11"
+                      Margin="2,0,0,7" Click="RedCambiada"/>
+
+            <Border Background="{StaticResource Superficie}" CornerRadius="6"
+                    BorderBrush="{StaticResource Borde}" BorderThickness="1"
+                    Padding="9,7" Margin="0,0,0,7">
+              <StackPanel>
+                <TextBlock Text="LA GENTE VERA ESTA RED" FontSize="9"
+                           Foreground="{StaticResource TextoSuave}" Margin="0,0,0,3"/>
+                <TextBlock x:Name="txtRedFinal" FontFamily="Consolas" FontSize="13"
+                           FontWeight="Bold" TextWrapping="Wrap" Foreground="{StaticResource Acento}"/>
+                <TextBlock x:Name="txtRedAviso" FontSize="10" TextWrapping="Wrap"
+                           Foreground="{StaticResource Alerta}" Margin="0,4,0,0" Visibility="Collapsed"/>
+              </StackPanel>
+            </Border>
+
+            <Button Style="{StaticResource BotonBase}" Click="ComprobarAp_Click"
+                    Content="¿Puede esta tarjeta ser punto de acceso?"
+                    ToolTip="Conecta un adaptador WiFi y pulsa aqui. Te dice SI o NO y por que."/>
+            <Button Style="{StaticResource BotonBase}" Content="Levantar la red WiFi" Click="LevantarAp_Click"/>
+            <Button Style="{StaticResource BotonBase}" Content="Bajar la red WiFi" Click="BajarAp_Click"/>
+          </StackPanel>
+
+          <TextBlock Text="CONFIGURACION" Style="{StaticResource Titulo}"/>
+          <TextBlock Text="Nombre del puesto" FontSize="11" Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+          <TextBox x:Name="cajaPuesto" Margin="0,0,0,7"/>
+          <TextBlock Text="PIN de operador (solo digitos)" FontSize="11" Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+          <TextBox x:Name="cajaPin" Margin="0,0,0,7" MaxLength="8"/>
+          <StackPanel x:Name="zonaIpServidor">
+            <TextBlock Text="Tarjeta de red / IP del servidor" FontSize="11" Foreground="{StaticResource TextoSuave}" Margin="2,0,0,3"/>
+            <ComboBox x:Name="listaAdaptadores" Margin="0,0,0,7"/>
+          </StackPanel>
+          <Button Style="{StaticResource BotonPrincipal}" Content="Guardar configuracion" Click="Guardar_Click"/>
+          <Button Style="{StaticResource BotonBase}" Content="Abrir los puertos en el firewall" Click="Firewall_Click"/>
+
+          <TextBlock Text="DATOS" Style="{StaticResource Titulo}"/>
+          <Button Style="{StaticResource BotonBase}" Content="Ver resumen del censo" Click="VerCenso_Click"/>
+          <Button Style="{StaticResource BotonBase}" Content="Exportar el censo a CSV" Click="Exportar_Click"/>
+          <Button Style="{StaticResource BotonBase}" Content="Respaldar la base de datos" Click="Respaldar_Click"/>
+          <Button x:Name="btnVaciar" Style="{StaticResource BotonPeligro}"
+                  Content="Vaciar la base de datos" Click="Vaciar_Click"/>
+
+          <TextBlock Text="VERIFICAR" Style="{StaticResource Titulo}"/>
+          <Button Style="{StaticResource BotonBase}" Content="Diagnostico previo al despliegue" Click="Diagnostico_Click"/>
+          <Button Style="{StaticResource BotonBase}" Content="Prueba de humo end-to-end" Click="Humo_Click"/>
+          <Button Style="{StaticResource BotonBase}" Content="Emitir certificado nuevo del GPS" Click="Certificado_Click"/>
+
+          <TextBlock Text="ABRIR EN EL NAVEGADOR" Style="{StaticResource Titulo}"/>
+          <Button x:Name="btnAbrirOperador" Style="{StaticResource BotonBase}"
+                  Content="Consola de operador" Click="AbrirOperador_Click" IsEnabled="False"/>
+          <Button x:Name="btnAbrirPortal" Style="{StaticResource BotonBase}"
+                  Content="Portal (lo que ve la gente)" Click="AbrirPortal_Click" IsEnabled="False"/>
+          <Button x:Name="btnAbrirCartel" Style="{StaticResource BotonBase}"
+                  Content="Cartel para imprimir" Click="AbrirCartel_Click" IsEnabled="False"/>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Registro en vivo -->
+      <Grid Grid.Column="1" Margin="0,10,14,14">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,6">
+          <TextBlock Text="REGISTRO" Foreground="{StaticResource TextoSuave}"
+                     FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <CheckBox x:Name="autoScroll" Content="Seguir al final" IsChecked="True"
+                      Foreground="{StaticResource TextoSuave}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <Button Style="{StaticResource BotonBase}" Content="Copiar" Margin="0,0,6,0"
+                    Padding="10,4" Click="CopiarLog_Click"/>
+            <Button Style="{StaticResource BotonBase}" Content="Limpiar" Margin="0"
+                    Padding="10,4" Click="LimpiarLog_Click"/>
+          </StackPanel>
+        </Grid>
+
+        <Border Grid.Row="1" Background="#010409" CornerRadius="8"
+                BorderBrush="{StaticResource Borde}" BorderThickness="1">
+          <TextBox x:Name="cajaLog" IsReadOnly="True" Background="Transparent"
+                   BorderThickness="0" Foreground="#C9D1D9" FontFamily="Consolas"
+                   FontSize="12.5" Padding="10" TextWrapping="NoWrap"
+                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- ================= PIE ================= -->
+    <Border Grid.Row="2" Background="{StaticResource Superficie}"
+            BorderBrush="{StaticResource Borde}" BorderThickness="0,1,0,0" Padding="16,7">
+      <Grid>
+        <TextBlock x:Name="txtPie" Foreground="{StaticResource TextoSuave}" FontSize="11"
+                   Text="Iniciando..."/>
+        <TextBlock x:Name="txtPieDerecha" Foreground="{StaticResource TextoSuave}" FontSize="11"
+                   HorizontalAlignment="Right" Text=""/>
+      </Grid>
+    </Border>
+
+  </Grid>
+</Window>

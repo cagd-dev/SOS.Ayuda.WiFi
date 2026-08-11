@@ -1,0 +1,24 @@
+{
+  "name": "sos-conectate-pide-ayuda",
+  "version": "1.0.0",
+  "description": "Portal cautivo de emergencia: censo de personas y chat con el puesto de mando. Funciona 100% sin internet.",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "puertos-altos": "node src/server.js --http 8080 --dns 5354 --https 8443",
+    "prueba": "node pruebas/humo.js",
+    "diagnostico": "node pruebas/diagnostico.js",
+    "limpiar": "node tools/reiniciar-bd.js",
+    "consola": "node tools/consola.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "selfsigned": "^5.5.0",
+    "ws": "^8.18.0"
+  }
+}

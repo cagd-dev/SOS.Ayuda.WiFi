@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Consola de operador · SOS</title>
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+<!-- ============ ACCESO ============ -->
+<section id="pantallaAcceso" style="display:grid;place-items:center;min-height:100vh;min-height:100dvh;padding:1.5rem">
+  <div class="tarjeta" style="max-width:420px;width:100%">
+    <h1>Consola de operador</h1>
+    <p style="color:var(--texto-suave)">Aqui hay datos personales de victimas. No dejes esta pantalla abierta sin vigilancia.</p>
+    <div id="errorAcceso" class="error" hidden></div>
+    <label class="campo">
+      <span class="etiqueta">Tu nombre</span>
+      <input type="text" id="campoOperador" autocomplete="off"
+             placeholder="Para que quede quien atendio cada caso">
+    </label>
+    <label class="campo">
+      <span class="etiqueta">PIN</span>
+      <input type="password" id="campoPin" inputmode="numeric" autocomplete="off" enterkeyhint="go">
+    </label>
+    <button type="button" class="boton" id="btnEntrar">Entrar</button>
+  </div>
+</section>
+
+<!-- ============ CONSOLA ============ -->
+<main class="consola" id="consola" data-vista="lista" hidden>
+
+  <!-- Columna izquierda: lista priorizada -->
+  <section class="panel-lista">
+    <div class="metricas" id="metricas"></div>
+
+    <div class="barra-herramientas">
+      <input type="text" id="filtroTexto" placeholder="Buscar nombre, cedula o codigo">
+      <button type="button" class="boton secundario chico" id="btnPendientes">Pendientes</button>
+      <button type="button" class="boton secundario chico" id="btnDifusion">Aviso general</button>
+      <button type="button" class="boton secundario chico" id="btnExportar">CSV</button>
+    </div>
+
+    <div class="lista-personas" id="listaPersonas">
+      <div class="vacio">Esperando a que se registre la primera persona...</div>
+    </div>
+  </section>
+
+  <!-- Columna derecha: ficha + chat -->
+  <section class="panel-chat">
+    <div id="sinSeleccion" class="vacio" style="flex:1;display:grid;place-content:center">
+      Selecciona una persona de la lista para ver su ficha y escribirle.
+    </div>
+
+    <!-- flex:1 + min-height:0 en vez de height:100%: es lo que deja que el
+         hilo de mensajes scrollee dentro en lugar de estirar el panel -->
+    <div id="detalle" hidden style="flex:1;min-height:0;display:flex;flex-direction:column">
+      <div class="ficha">
+        <div style="display:flex;align-items:flex-start;gap:.75rem">
+          <button type="button" class="boton secundario chico solo-movil" id="btnVolverLista">Volver</button>
+          <div style="flex:1;min-width:0">
+            <h2 id="fichaNombre" style="margin:0">—</h2>
+            <div style="color:var(--texto-suave);font-size:.85rem" id="fichaResumen">—</div>
+          </div>
+          <div class="acciones-ficha">
+            <button type="button" class="boton secundario chico" id="btnAtendido">Marcar atendido</button>
+            <button type="button" class="boton secundario chico" id="btnDudoso">Marcar dudoso</button>
+          </div>
+        </div>
+
+        <div id="bannerDudoso" class="aviso" hidden style="margin:.7rem 0 0"></div>
+
+        <dl id="fichaDatos"></dl>
+
+        <!-- Plegado por defecto: en triaje el chat vale mas que las notas, y
+             desplegado se comia media pantalla -->
+        <details class="notas-operador">
+          <summary>Notas del operador</summary>
+          <textarea id="campoNotas" placeholder="Observaciones internas (no las ve la persona)"></textarea>
+          <button type="button" class="boton secundario chico" id="btnGuardarNotas">Guardar notas</button>
+        </details>
+      </div>
+
+      <div class="chat-lista" id="listaMensajes"></div>
+
+      <form class="chat-barra" id="formMensaje">
+        <textarea id="campoMensaje" rows="1" placeholder="Responder..." enterkeyhint="send"></textarea>
+        <button type="submit" class="boton">Enviar</button>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<script src="/js/operador.js"></script>
+</body>
+</html>

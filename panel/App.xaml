@@ -1,0 +1,147 @@
+<Application x:Class="PanelSOS.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+  <Application.Resources>
+
+    <!-- Mismos colores que el portal web: quien opera ve un solo sistema -->
+    <SolidColorBrush x:Key="Fondo"      Color="#0D1117"/>
+    <SolidColorBrush x:Key="Superficie" Color="#161B22"/>
+    <SolidColorBrush x:Key="Superficie2" Color="#21262D"/>
+    <SolidColorBrush x:Key="Borde"      Color="#30363D"/>
+    <SolidColorBrush x:Key="Texto"      Color="#F0F6FC"/>
+    <SolidColorBrush x:Key="TextoSuave" Color="#9198A1"/>
+    <SolidColorBrush x:Key="Acento"     Color="#F78166"/>
+    <SolidColorBrush x:Key="Ok"         Color="#3FB950"/>
+    <SolidColorBrush x:Key="Alerta"     Color="#D29922"/>
+    <SolidColorBrush x:Key="Critico"    Color="#F85149"/>
+    <SolidColorBrush x:Key="Info"       Color="#58A6FF"/>
+
+    <!-- OJO: nada de fijar Foreground aqui. Un Setter en un estilo implicito
+         gana a la herencia, asi que el texto de CUALQUIER boton se pintaria de
+         este color y se perderia el contraste del boton principal. El color
+         base se hereda desde la ventana. -->
+    <Style TargetType="TextBlock">
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+    </Style>
+
+    <!-- Boton base. Alto generoso: esto se usa con prisa. -->
+    <Style x:Key="BotonBase" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource Texto}"/>
+      <Setter Property="Background" Value="{StaticResource Superficie2}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Borde}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="12,9"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="borde" CornerRadius="6"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+              <ContentPresenter Margin="{TemplateBinding Padding}"
+                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="borde" Property="Background" Value="#2D333B"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4"/>
+                <Setter Property="Cursor" Value="Arrow"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="BotonPrincipal" TargetType="Button" BasedOn="{StaticResource BotonBase}">
+      <Setter Property="Background" Value="{StaticResource Acento}"/>
+      <Setter Property="Foreground" Value="#1A1005"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="FontSize" Value="14"/>
+    </Style>
+
+    <Style x:Key="BotonPeligro" TargetType="Button" BasedOn="{StaticResource BotonBase}">
+      <Setter Property="Foreground" Value="#FFB4AB"/>
+      <Setter Property="Background" Value="#2D1214"/>
+    </Style>
+
+    <Style x:Key="Titulo" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource TextoSuave}"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Margin" Value="2,10,0,6"/>
+    </Style>
+
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="{StaticResource Superficie2}"/>
+      <Setter Property="Foreground" Value="{StaticResource Texto}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Borde}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="7,6"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="CaretBrush" Value="{StaticResource Texto}"/>
+    </Style>
+
+    <!--
+      El desplegable de la lista NO usa los colores del control: la plantilla de
+      Windows lo pinta con los colores del SISTEMA. Con tema claro salia legible
+      y con tema oscuro quedaba texto oscuro sobre fondo oscuro, invisible.
+      Redefiniendo aqui esas claves del sistema, el desplegable se ve igual con
+      cualquier tema que tenga el equipo.
+    -->
+    <Style TargetType="ComboBox">
+      <Setter Property="Background" Value="{StaticResource Superficie2}"/>
+      <Setter Property="Foreground" Value="{StaticResource Texto}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Borde}"/>
+      <Setter Property="Padding" Value="7,6"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Style.Resources>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#21262D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F0F6FC"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#21262D"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#F78166"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#1A1005"/>
+      </Style.Resources>
+    </Style>
+
+    <!-- Plantilla propia para cada renglon: asi el color no depende de lo que
+         herede de la plantilla del sistema. -->
+    <Style TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="{StaticResource Texto}"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Padding" Value="9,7"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBoxItem">
+            <Border x:Name="fondo" Background="{TemplateBinding Background}"
+                    Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <!-- Azul con el texto claro que ya se hereda: si pusieramos el
+                   naranja de acento habria que oscurecer el texto, y eso choca
+                   con el color heredado. -->
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="fondo" Property="Background" Value="#1F6FEB"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter TargetName="fondo" Property="Background" Value="#30363D"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+  </Application.Resources>
+</Application>
