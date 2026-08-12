@@ -3,14 +3,24 @@
 ![Puesto de mando de emergencia](empaquetar/recursos/portada-empaque.png)
 
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.2.0-blue.svg)](CHANGELOG.md)
-[![Pruebas](https://img.shields.io/badge/pruebas-134%20OK-brightgreen.svg)](pruebas/humo.js)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.3.0-blue.svg)](CHANGELOG.md)
+[![Pruebas](https://img.shields.io/badge/pruebas-138%20OK-brightgreen.svg)](pruebas/humo.js)
+[![Descargar](https://img.shields.io/badge/descargar-Windows-orange.svg)](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases)
 
-Portal cautivo de emergencia para localizar personas después de un desastre.
+**Portal cautivo de emergencia para localizar personas después de un desastre
+—terremoto, inundación, derrumbe— cuando no hay internet ni cobertura celular.**
+
 Se despliega un router WiFi abierto; cuando alguien se conecta, **se le abre solo**
-un formulario donde se registra y puede chatear con el puesto de mando.
+un formulario donde se registra (censo de damnificados) y puede chatear con el
+puesto de mando. Quien está atrapado o herido sube automáticamente al tope de la
+lista del operador.
 
-**Funciona 100 % sin internet.** Todo vive en la red local.
+**Funciona 100 % sin internet.** Todo vive en la red local: servidor DNS, servidor
+DHCP, base de datos y chat, en el mismo PC.
+
+<sub><i>Offline emergency captive portal for disaster response: a self-contained
+WiFi sign-in page that registers missing and trapped people and connects them to
+an incident command post. No internet required. Spanish UI, GPL-3.0.</i></sub>
 
 > Nació tras el terremoto de Colombia de agosto de 2026. Es **software libre
 > (GPL-3.0)** y el código se distribuye sin ofuscar a propósito: si lo necesitas
@@ -22,6 +32,27 @@ un formulario donde se registra y puede chatear con el puesto de mando.
 [cómo contribuir](CONTRIBUIR.md) ·
 [registro de cambios](CHANGELOG.md) ·
 [componentes de terceros](TERCEROS.md)
+
+---
+
+## Descargar y usar (no hace falta programar)
+
+Ve a **[Versiones (Releases)](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases)**
+y baja uno de los dos:
+
+| Archivo | Para qué |
+|---|---|
+| **`SOS.Conectate.PideAyuda-Setup.exe`** | Instalador para Windows. Es el que quieres. |
+| **`SOS.Conectate.PideAyuda.zip`** | Versión portátil, para llevar en una USB. |
+
+**No necesitas instalar Node.js, ni .NET, ni nada más:** viajan dentro del paquete.
+Instala, abre **SOS Panel de mando**, pulsa *Iniciar el portal* y sigue la
+[guía de despliegue](DESPLIEGUE.md).
+
+> Windows va a avisar de que el programa no está firmado (SmartScreen). Es
+> esperado: firmar cuesta dinero y este proyecto no vende nada. Si prefieres no
+> fiarte de un binario —y haces bien—, el código está entero aquí y se compila con
+> `.\empaquetar\construir.ps1 -Instalador`.
 
 ```
 Celular ──WiFi──> Router comercial ──LAN──> Servidor (este proyecto)
@@ -53,12 +84,16 @@ chat, se marca atendido o se marca como reporte dudoso.
 
 ![Consola del operador](images/consola-del-operador.png)
 
-**El panel de mando.** Arranca y detiene el portal, cambia el PIN, abre los
-puertos del firewall, exporta el censo y guía el cierre de la operación. El log
-del servidor va embebido en la propia ventana, así no hay consolas sueltas
-robando el teclado.
+**El panel de mando.** Trae **la consola de operador embebida**: se instala, se
+pulsa *Iniciar el portal* y ya se está trabajando, sin salir a buscar un navegador
+ni recordar una dirección. Todo lo demás —arrancar, configurar, exportar, cerrar la
+operación— vive en un cajón que se abre con un solo botón y se recoge solo cuando
+el portal arranca.
 
 ![Panel de mando](images/panel-de-mando.png)
+
+<sub>La captura es de la versión 1.2.0, cuando el panel mostraba el registro del
+servidor. Hoy ese registro es una pestaña más.</sub>
 
 > Las capturas son de una prueba con datos inventados. El PIN va tapado y la
 > coordenada GPS es sintética: nunca publiques capturas de una operación real.
@@ -89,7 +124,13 @@ de tus cambios. Ver [LICENSE](LICENSE) y [TERCEROS.md](TERCEROS.md).
 El script se autocomprueba: antes de comprimir, ejecuta `tools/estado.js` con el
 Node empaquetado y falla si no responde. Así no se publica un paquete roto.
 
-## Arranque rápido
+Los binarios **no viven en el repositorio**, van en las Releases de GitHub. El
+procedimiento completo está en [empaquetar/PUBLICAR.md](empaquetar/PUBLICAR.md).
+
+## Arranque rápido (desde el código)
+
+Para operar no hace falta nada de esto — usa el instalador. Esto es para
+desarrollar. Necesitas **Node.js 22.5+** y, para el panel, el **SDK de .NET 8**.
 
 **Doble clic en `ARRANCAR.bat`.** Se autoeleva, instala dependencias la primera vez,
 libera el puerto 53, aplica las reglas de firewall y abre el **panel de mando**
@@ -108,7 +149,7 @@ Equivalentes por línea de comandos:
 | `npm run puertos-altos` | Igual, pero en 8080/8443/5354 (no necesita Administrador) |
 | `npm run dev` | Con recarga automática al editar |
 | `npm run diagnostico` | Chequeo previo al despliegue |
-| `npm run prueba` | 107 pruebas end-to-end contra el servidor corriendo |
+| `npm run prueba` | 111 pruebas end-to-end contra el servidor corriendo |
 | `npm run prueba-cierre` | 27 pruebas del cierre de operación (no necesita el servidor) |
 | `npm run limpiar` | Respalda y vacía la base (con el servidor detenido) |
 
@@ -168,7 +209,7 @@ public/
   cartel.html     Cartel imprimible con el nombre de la red
   js/gps-enlace.js  Explicación previa al aviso de certificado (portal y chat)
 pruebas/
-  humo.js        107 pruebas end-to-end
+  humo.js        111 pruebas end-to-end
   cierre.js      27 pruebas del cierre, contra una carpeta temporal
   diagnostico.js Chequeo previo al despliegue
 tools/
@@ -181,7 +222,7 @@ tools/
   reiniciar-bd.js  Respalda y vacía la base
 panel/
   PanelSOS.csproj  Panel de mando en WPF (net8.0-windows)
-  MainWindow.xaml  Ventana: estado, acciones y log del servidor en vivo
+  MainWindow.xaml  Ventana: consola embebida, cajón de ajustes y registro
   Servicios.cs     Localizar el proyecto, lanzar Node, leer estado
 ```
 
@@ -192,10 +233,16 @@ al mismo script de Node que usa el menú de texto, y lee el estado de
 `tools/estado.js`. No hay una copia de las reglas en C# que se pueda desincronizar
 con la de JavaScript.
 
-El servidor corre como **proceso hijo del panel con la salida redirigida**, así que
-su log aparece dentro de la ventana. Esa es la razón de ser del panel: antes el
+La zona principal es **la consola de operador dentro de un WebView2**: la misma
+página que se sirve por HTTP, no una reimplementación en C#. El registro del
+servidor sigue estando, en su pestaña, porque el portal corre como **proceso hijo
+del panel con la salida redirigida**. Esa fue la razón de ser del panel: antes el
 portal se abría en una consola aparte que saltaba al frente y le robaba el teclado
 a quien estuviera escribiendo.
+
+Si el equipo no tiene el runtime de WebView2, el panel **no se rompe**: lo detecta y
+ofrece abrir la consola en el navegador del sistema. Quedarse sin consola en mitad
+de una emergencia no puede depender de un componente opcional de Windows.
 
 ### Cero dependencias nativas
 
@@ -442,3 +489,25 @@ Que quede claro para no prometer de más:
   puntos.
 - **No reemplaza al sistema oficial.** Es un puente mientras las comunicaciones
   vuelven. Los datos se entregan a Defensa Civil / Cruz Roja / UNGRD.
+
+---
+
+## Si llegaste buscando otra cosa
+
+Esto es lo que la gente suele estar buscando cuando termina aquí, por si es tu caso
+o por si conoces a quien lo necesita:
+
+**En español** — portal cautivo sin internet · censo de damnificados · localizar
+personas después de un terremoto · red WiFi de emergencia · chat con puesto de
+mando · registro de desaparecidos · comunicación en desastres sin cobertura ·
+sistema de emergencia offline · punto de encuentro digital · albergue temporal.
+
+**In English** — offline captive portal · disaster response software · emergency
+WiFi network · missing persons registry · earthquake response tools · incident
+command post chat · humanitarian software · no-internet communication · shelter
+check-in system · SAR (search and rescue) support.
+
+Está escrito **en español** a propósito: se diseñó para una emergencia en Colombia y
+la gente que lo usa bajo presión lee en español. Si lo necesitas en otro idioma,
+[las traducciones son bienvenidas](CONTRIBUIR.md) — los textos están en
+`public/*.html` y en `public/js/`.

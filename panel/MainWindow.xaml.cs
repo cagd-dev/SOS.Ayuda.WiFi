@@ -14,6 +14,15 @@ public partial class MainWindow : Window
     private EstadoSistema _estado = EstadoSistema.Vacio();
     private bool _ocupado;
 
+    /* Vista principal: consola de operador, portal, o el registro del servidor. */
+    private enum Vista { Consola, Portal, Registro }
+    private Vista _vista = Vista.Consola;
+
+    private bool _webListo;          // WebView2 inicializado correctamente
+    private bool _webInicializando;  // hay una inicializacion en vuelo
+    private bool _webImposible;      // no se pudo: se abre en el navegador
+    private string _urlCargada = ""; // para no recargar en cada tick del reloj
+
     public MainWindow()
     {
         InitializeComponent();
@@ -183,7 +192,161 @@ public partial class MainWindow : Window
         txtPieDerecha.Text =
             $"datos en {_estado.CarpetaDatos}" +
             $"   ·   {(Proyecto.EsAdministrador() ? "Administrador" : "sin elevar")}";
+
+        PintarVista();
     }
+
+    /* ---------------------------------------------------------------- */
+    /* Vista principal                                                   */
+    /* ---------------------------------------------------------------- */
+
+    /// <summary>
+    /// El cajon de ajustes se abre y se cierra con el boton de la cabecera.
+    /// Arranca abierto porque lo primero que hay que hacer es iniciar el
+    /// portal, y se cierra solo en cuanto el portal arranca: a partir de ahi
+    /// lo que importa es la consola, no los botones de configuracion.
+    /// </summary>
+    private void AlternarAjustes_Click(object sender, RoutedEventArgs e)
+        => MostrarAjustes(columnaAjustes.Width.Value == 0);
+
+    private void MostrarAjustes(bool visible)
+    {
+        columnaAjustes.Width = new GridLength(visible ? 345 : 0);
+        cajonAjustes.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        btnAjustes.Content = visible ? "☰  Ocultar ajustes" : "☰  Ajustes y herramientas";
+    }
+
+    private void Pestana_Click(object sender, RoutedEventArgs e)
+    {
+        _vista =
+            ReferenceEquals(sender, pestanaPortal) ? Vista.Portal :
+            ReferenceEquals(sender, pestanaRegistro) ? Vista.Registro : Vista.Consola;
+        PintarVista();
+    }
+
+    private string UrlDeLaVista() => _vista switch
+    {
+        Vista.Portal => _estado.UrlBase,
+        _ => $"{_estado.UrlBase}/operador.html",
+    };
+
+    private void PintarVista()
+    {
+        pestanaConsola.Tag = _vista == Vista.Consola ? "activa" : null;
+        pestanaPortal.Tag = _vista == Vista.Portal ? "activa" : null;
+        pestanaRegistro.Tag = _vista == Vista.Registro ? "activa" : null;
+
+        var enRegistro = _vista == Vista.Registro;
+        herramientasLog.Visibility = enRegistro ? Visibility.Visible : Visibility.Collapsed;
+        herramientasWeb.Visibility = enRegistro ? Visibility.Collapsed : Visibility.Visible;
+        cajaLog.Visibility = enRegistro ? Visibility.Visible : Visibility.Collapsed;
+
+        if (enRegistro)
+        {
+            vistaWeb.Visibility = Visibility.Collapsed;
+            avisoVista.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var activo = _estado.PortalActivo || _nodo.ServidorActivo;
+
+        if (!activo)
+        {
+            vistaWeb.Visibility = Visibility.Collapsed;
+            avisoVista.Visibility = Visibility.Visible;
+            btnAvisoVista.Visibility = Visibility.Collapsed;
+            txtAvisoVista.Text = "El portal esta detenido.\n\n" +
+                "Abre «Ajustes y herramientas» e inicia el portal: aqui aparecera " +
+                "la consola de operador, con la lista de personas y sus mensajes.";
+            _urlCargada = "";
+            return;
+        }
+
+        if (_webImposible)
+        {
+            vistaWeb.Visibility = Visibility.Collapsed;
+            avisoVista.Visibility = Visibility.Visible;
+            btnAvisoVista.Visibility = Visibility.Visible;
+            txtAvisoVista.Text = "No se pudo mostrar la consola dentro del panel: en este " +
+                "equipo falta el runtime de WebView2, o ya hay otro panel abierto.\n\n" +
+                "El sistema funciona igual. Mira el detalle en la pestana «Registro».";
+            return;
+        }
+
+        avisoVista.Visibility = Visibility.Collapsed;
+        vistaWeb.Visibility = Visibility.Visible;
+        _ = NavegarAsync(UrlDeLaVista());
+    }
+
+    /// <summary>
+    /// Inicializa WebView2 la primera vez y navega. Si el runtime no esta,
+    /// no se rompe nada: se marca imposible y el panel ofrece el navegador.
+    /// Que el equipo no tenga WebView2 no puede dejar sin consola a un puesto
+    /// de mando en mitad de una emergencia.
+    /// </summary>
+    private async Task NavegarAsync(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || _webImposible) return;
+
+        if (!_webListo)
+        {
+            // El reloj refresca cada 3 s y esta inicializacion tarda mas que
+            // eso: sin el cerrojo entrarian dos a la vez y la segunda revienta
+            // con la carpeta de perfil ya tomada.
+            if (_webInicializando) return;
+            _webInicializando = true;
+
+            try
+            {
+                // El perfil va en la carpeta de datos: en una instalacion el
+                // directorio del programa es de solo lectura para el operador.
+                var perfil = Path.Combine(
+                    string.IsNullOrWhiteSpace(_estado.CarpetaDatos)
+                        ? Path.Combine(Proyecto.Raiz, "datos")
+                        : _estado.CarpetaDatos,
+                    "webview");
+                Directory.CreateDirectory(perfil);
+
+                var entorno = await Microsoft.Web.WebView2.Core.CoreWebView2Environment
+                    .CreateAsync(null, perfil);
+                await vistaWeb.EnsureCoreWebView2Async(entorno);
+
+                vistaWeb.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                vistaWeb.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+                // El certificado del canal del GPS es autofirmado a proposito.
+                vistaWeb.CoreWebView2.ServerCertificateErrorDetected += (_, args) =>
+                    args.Action = Microsoft.Web.WebView2.Core
+                        .CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
+
+                _webListo = true;
+            }
+            catch (Exception ex)
+            {
+                _webImposible = true;
+                Escribir($"No se pudo abrir la vista embebida: {ex.Message}");
+                Escribir("La consola se abrira en el navegador del sistema.");
+                PintarVista();
+                return;
+            }
+            finally { _webInicializando = false; }
+        }
+
+        if (_urlCargada == url) return;
+        _urlCargada = url;
+        try { vistaWeb.CoreWebView2.Navigate(url); }
+        catch (Exception ex) { Escribir($"No se pudo cargar {url}: {ex.Message}", true); }
+    }
+
+    private void RecargarWeb_Click(object sender, RoutedEventArgs e)
+    {
+        _urlCargada = "";
+        if (_webListo) { try { vistaWeb.CoreWebView2.Reload(); } catch { /* aun sin cargar */ } }
+        PintarVista();
+    }
+
+    private void AbrirVistaEnNavegador_Click(object sender, RoutedEventArgs e)
+        => Abrir(UrlDeLaVista());
 
     /* ---------------------------------------------------------------- */
     /* Registro                                                          */
@@ -254,6 +417,12 @@ public partial class MainWindow : Window
         }
         await Task.Delay(1500);
         await RefrescarAsync();
+
+        // Arrancado el portal, el trabajo pasa a ser la consola: el cajon de
+        // ajustes estorba y se recoge solo. Vuelve con el boton de la cabecera.
+        MostrarAjustes(false);
+        _vista = Vista.Consola;
+        PintarVista();
     }
 
     private async void Detener_Click(object sender, RoutedEventArgs e)

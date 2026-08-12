@@ -1,6 +1,7 @@
 <Window x:Class="PanelSOS.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="SOS · Conectate · Pide Ayuda — Panel de mando"
         Height="780" Width="1200" MinHeight="620" MinWidth="1000"
         WindowStartupLocation="CenterScreen"
@@ -53,21 +54,29 @@
           </Border>
         </WrapPanel>
 
-        <Button Grid.Column="2" x:Name="btnAdmin" Style="{StaticResource BotonBase}"
-                Content="Reiniciar como Administrador" Margin="0" Visibility="Collapsed"
-                Click="ReiniciarComoAdmin_Click"/>
+        <StackPanel Grid.Column="2" Orientation="Horizontal">
+          <Button x:Name="btnAdmin" Style="{StaticResource BotonBase}"
+                  Content="Reiniciar como Administrador" Margin="0,0,8,0" Visibility="Collapsed"
+                  Click="ReiniciarComoAdmin_Click"/>
+          <!-- El unico boton que gobierna toda la columna de ajustes. Antes esa
+               columna estaba siempre desplegada y se comia media pantalla con
+               opciones que se tocan una vez por operacion. -->
+          <Button x:Name="btnAjustes" Style="{StaticResource BotonBase}" Margin="0"
+                  Content="☰  Ajustes y herramientas" Click="AlternarAjustes_Click"/>
+        </StackPanel>
       </Grid>
     </Border>
 
     <!-- ================= CUERPO ================= -->
     <Grid Grid.Row="1">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="345"/>
+        <!-- Ancho 0 = cajon cerrado. Lo abre y lo cierra el boton de la cabecera. -->
+        <ColumnDefinition x:Name="columnaAjustes" Width="345"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <!-- Columna de acciones -->
-      <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto"
+      <!-- Cajon de acciones -->
+      <ScrollViewer x:Name="cajonAjustes" Grid.Column="0" VerticalScrollBarVisibility="Auto"
                     Background="{StaticResource Fondo}" Padding="14,10,10,14">
         <StackPanel>
 
@@ -220,7 +229,10 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- Registro en vivo -->
+      <!-- ===== Zona principal: la consola de operador, embebida =====
+           El panel dejo de ser "una ventana con un log al lado" para ser el
+           puesto de trabajo del operador. El registro sigue estando, pero en
+           su pestana: se mira cuando algo va mal, no todo el rato. -->
       <Grid Grid.Column="1" Margin="0,10,14,14">
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto"/>
@@ -228,9 +240,24 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,6">
-          <TextBlock Text="REGISTRO" Foreground="{StaticResource TextoSuave}"
-                     FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
-          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="pestanaConsola" Style="{StaticResource Pestana}" Tag="activa"
+                    Content="Consola de operador" Click="Pestana_Click"/>
+            <Button x:Name="pestanaPortal" Style="{StaticResource Pestana}"
+                    Content="Portal de la gente" Click="Pestana_Click"/>
+            <Button x:Name="pestanaRegistro" Style="{StaticResource Pestana}"
+                    Content="Registro" Click="Pestana_Click"/>
+          </StackPanel>
+
+          <StackPanel x:Name="herramientasWeb" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Style="{StaticResource BotonBase}" Content="Recargar" Margin="0,0,6,0"
+                    Padding="10,4" Click="RecargarWeb_Click"/>
+            <Button Style="{StaticResource BotonBase}" Content="Abrir en el navegador" Margin="0"
+                    Padding="10,4" Click="AbrirVistaEnNavegador_Click"/>
+          </StackPanel>
+
+          <StackPanel x:Name="herramientasLog" Orientation="Horizontal"
+                      HorizontalAlignment="Right" Visibility="Collapsed">
             <CheckBox x:Name="autoScroll" Content="Seguir al final" IsChecked="True"
                       Foreground="{StaticResource TextoSuave}" VerticalAlignment="Center" Margin="0,0,12,0"/>
             <Button Style="{StaticResource BotonBase}" Content="Copiar" Margin="0,0,6,0"
@@ -242,10 +269,27 @@
 
         <Border Grid.Row="1" Background="#010409" CornerRadius="8"
                 BorderBrush="{StaticResource Borde}" BorderThickness="1">
-          <TextBox x:Name="cajaLog" IsReadOnly="True" Background="Transparent"
-                   BorderThickness="0" Foreground="#C9D1D9" FontFamily="Consolas"
-                   FontSize="12.5" Padding="10" TextWrapping="NoWrap"
-                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+          <Grid>
+            <wv2:WebView2 x:Name="vistaWeb" Visibility="Collapsed"/>
+
+            <!-- Lo que se ve cuando no hay nada que mostrar: portal detenido,
+                 o WebView2 no disponible en este equipo. -->
+            <StackPanel x:Name="avisoVista" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        MaxWidth="460">
+              <TextBlock x:Name="txtAvisoVista" TextWrapping="Wrap" TextAlignment="Center"
+                         Foreground="{StaticResource TextoSuave}" FontSize="13"
+                         Text="Inicia el portal para ver aqui la consola de operador."/>
+              <Button x:Name="btnAvisoVista" Style="{StaticResource BotonBase}"
+                      HorizontalAlignment="Center" HorizontalContentAlignment="Center"
+                      Margin="0,14,0,0" Padding="16,9" Visibility="Collapsed"
+                      Content="Abrir en el navegador" Click="AbrirVistaEnNavegador_Click"/>
+            </StackPanel>
+
+            <TextBox x:Name="cajaLog" IsReadOnly="True" Background="Transparent"
+                     BorderThickness="0" Foreground="#C9D1D9" FontFamily="Consolas"
+                     FontSize="12.5" Padding="10" TextWrapping="NoWrap" Visibility="Collapsed"
+                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+          </Grid>
         </Border>
       </Grid>
     </Grid>

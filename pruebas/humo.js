@@ -109,11 +109,16 @@ async function main() {
   revisar('dominio ajeno redirige al portal', ajeno.status === 302, `dio ${ajeno.status}`);
 
   /* --- Registro --- */
+  // Cedula inventada, pero con un valor raro a proposito: sirve para comprobar
+  // mas abajo que el tablon publico NO deja buscar por documento.
+  const DOCUMENTO_PRUEBA = '99887766';
+
   const registro = await fetch(`${URL_BASE}/api/registro`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
       nombre: 'Prueba De Humo',
+      documento: DOCUMENTO_PRUEBA,
       estado: 'atrapado',
       necesidades: ['rescate', 'agua'],
       ubicacion: 'Calle falsa 123',
@@ -493,8 +498,42 @@ async function main() {
   const volcado = await fetch(`${URL_BASE}/api/directorio`, { headers: { Accept: 'application/json' } }).then(json);
   revisar('el directorio NO vuelca el censo sin busqueda', volcado.personas?.length === 0,
     `devolvio ${volcado.personas?.length}`);
-  const unaLetra = await fetch(`${URL_BASE}/api/directorio?q=P`, { headers: { Accept: 'application/json' } }).then(json);
-  revisar('el directorio exige dos letras', unaLetra.personas?.length === 0);
+  const dosLetras = await fetch(`${URL_BASE}/api/directorio?q=Pr`, { headers: { Accept: 'application/json' } }).then(json);
+  revisar('el directorio exige tres letras', dosLetras.personas?.length === 0);
+
+  /* --- Apropiacion de sesion: la cadena directorio -> recuperar ---
+   *
+   * Cualquiera en la red podia buscar en el tablon, quedarse con el codigo que
+   * venia en la respuesta y cambiarlo por el token de esa persona enviandolo a
+   * /api/recuperar con el nombre vacio. Con el token entraba a su chat y le
+   * cambiaba estado, necesidades y ubicacion.
+   *
+   * Cada una de las cuatro pruebas rompe un eslabon distinto. Si alguna cae,
+   * la cadena vuelve a estar servida. */
+  revisar('el directorio NO expone el codigo de recuperacion',
+    !JSON.stringify(directorio).includes(registro.persona.codigo));
+
+  const porCedula = await fetch(
+    `${URL_BASE}/api/directorio?q=${encodeURIComponent(DOCUMENTO_PRUEBA)}`,
+    { headers: { Accept: 'application/json' } }).then(json);
+  revisar('el directorio NO busca por cedula', porCedula.personas?.length === 0,
+    `devolvio ${porCedula.personas?.length}`);
+
+  const nombreVacio = await fetch(`${URL_BASE}/api/recuperar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ codigo: registro.persona.codigo, nombre: '' }),
+  });
+  revisar('recuperar RECHAZA el nombre vacio', nombreVacio.status === 400,
+    `dio ${nombreVacio.status} — startsWith('') es cierto siempre`);
+
+  const nombreAjeno = await fetch(`${URL_BASE}/api/recuperar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ codigo: registro.persona.codigo, nombre: 'Otra Persona' }),
+  });
+  revisar('recuperar rechaza el codigo correcto con otro nombre', nombreAjeno.status === 404,
+    `dio ${nombreAjeno.status}`);
 
   /* --- WebSocket --- */
   await new Promise((resolver) => {

@@ -27,6 +27,21 @@ function sesionValida(sesion) {
   return !!sesion && sesionesOperador.has(sesion);
 }
 
+/**
+ * Texto comparable: sin mayusculas, sin tildes y sin espacios de sobra.
+ *
+ * Se usa para cotejar el nombre al recuperar la sesion. Quien se registro como
+ * "María" teclea "maria" media hora despues, con el celular roto y las manos
+ * temblando, y tiene que entrar igual.
+ */
+function normalizar(texto) {
+  return String(texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')  // los acentos, ya separados por NFD
+    .trim()
+    .toLowerCase();
+}
+
 /* ------------------------------------------------------------------ *
  * Cuotas por dispositivo
  *
@@ -189,6 +204,9 @@ function crearApp() {
   const cuotaMensajes   = cuota('mensajes', 90, MINUTO);
   const cuotaLogin      = cuota('login', 25, 5 * MINUTO);
   const cuotaUbicacion  = cuota('ubicacion', 30, 5 * MINUTO);
+  // Alta: el tablon se consulta mientras se teclea, letra a letra.
+  const cuotaDirectorio = cuota('directorio', 120, 5 * MINUTO);
+  const cuotaReconocer  = cuota('reconocer', 40, 5 * MINUTO);
 
   /* ---------------- API de la persona ---------------- */
 
@@ -261,11 +279,26 @@ function crearApp() {
     return responder(req, res, 200, { ok: true, persona: vistaPersona(persona) }, `/chat.html?t=${persona.token}`);
   });
 
+  /**
+   * Recuperar la sesion con codigo + nombre.
+   *
+   * El codigo es una CREDENCIAL, no un identificador: quien lo tiene entra al
+   * chat de esa persona y puede cambiarle estado, necesidades y ubicacion. Por
+   * eso el nombre es la segunda mitad de la prueba y se exige de verdad.
+   *
+   * Aqui hubo un agujero: se comparaba con startsWith(nombre.slice(0, 3)), y
+   * con el nombre vacio eso es startsWith('') — cierto SIEMPRE. Bastaba un
+   * codigo, que el tablon publico ademas regalaba, para llevarse la sesion.
+   */
   app.post('/api/recuperar', cuotaRecuperar, (req, res) => {
     const codigo = String(req.body.codigo || '').trim().toUpperCase();
-    const nombre = String(req.body.nombre || '').trim().toLowerCase();
-    const fila = personas.buscar(codigo).find((p) => p.codigo === codigo);
-    if (!fila || !fila.nombre.toLowerCase().startsWith(nombre.slice(0, 3))) {
+    const nombre = normalizar(req.body.nombre);
+    if (nombre.length < 3) {
+      return res.status(400).json({ error: 'Escribe al menos las tres primeras letras de tu nombre.' });
+    }
+
+    const fila = personas.porCodigo(codigo);
+    if (!fila || !normalizar(fila.nombre).startsWith(nombre.slice(0, 3))) {
       return res.status(404).json({ error: 'No encontramos ese codigo con ese nombre.' });
     }
     ponerCookie(res, 'sos_token', fila.token);
@@ -281,7 +314,7 @@ function crearApp() {
    * ella. Confirmar es un toque, y evita darle la sesion de otro a quien
    * comparte el telefono.
    */
-  app.get('/api/reconocer', async (req, res) => {
+  app.get('/api/reconocer', cuotaReconocer, async (req, res) => {
     const mac = await macDe(req.ip);
     if (!mac) return res.json({ reconocido: false });
 
@@ -403,26 +436,32 @@ function crearApp() {
   /**
    * Tablon publico para que la gente busque a los suyos.
    *
-   * EXIGE al menos dos caracteres de busqueda. Sin ese limite, una peticion sin
-   * texto devolvia el censo entero: nombres, codigos, estado y acompanantes de
-   * todo el mundo, a cualquiera que estuviese en la red. Buscar a una persona
-   * concreta sigue funcionando igual; volcar la lista completa, no.
+   * Responde a una sola pregunta: "¿esta esta persona registrada y como esta?".
+   * Todo lo que no haga falta para eso se queda fuera, porque cualquiera en la
+   * red abierta puede consultarlo.
+   *
+   * - NO devuelve el codigo. El codigo es la credencial con la que se recupera
+   *   la sesion: publicarlo aqui equivalia a repartir las llaves, y encadenado
+   *   con /api/recuperar dejaba entrar al chat de cualquiera.
+   * - Busca SOLO por nombre. Antes usaba la busqueda del operador, que tambien
+   *   casa cedula y codigo: se tecleaban digitos y salian personas.
+   * - Exige tres caracteres y tiene cuota propia, para que no se pueda barrer
+   *   el censo a fuerza de combinaciones.
    */
-  app.get('/api/directorio', (req, res) => {
+  app.get('/api/directorio', cuotaDirectorio, (req, res) => {
     const q = String(req.query.q || '').trim();
-    if (q.length < 2) {
+    if (q.length < 3) {
       return res.json({
         total: personas.contar().total,
         personas: [],
-        aviso: 'Escribe al menos dos letras del nombre que buscas.',
+        aviso: 'Escribe al menos tres letras del nombre que buscas.',
       });
     }
 
-    const lista = personas.buscar(q).slice(0, 50);
+    const lista = personas.buscarPorNombre(q).slice(0, 50);
     res.json({
       total: personas.contar().total,
       personas: lista.map((p) => ({
-        codigo: p.codigo,
         nombre: p.nombre,
         estado: p.estado,
         estadoEtiqueta: p.estadoEtiqueta,

@@ -10,15 +10,27 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>PanelSOS</AssemblyName>
     <RootNamespace>PanelSOS</RootNamespace>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Product>SOS · Conectate · Pide Ayuda</Product>
     <Description>Panel de mando del portal de emergencia</Description>
     <!-- NO activar InvariantGlobalization: WPF necesita culturas reales para
          medir texto (FontCache construye CultureInfo("en")) y la aplicacion
          revienta al dibujar la primera linea. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- Sin los .xml de documentacion de los paquetes: son medio MB de texto
+         que no le sirve a nadie dentro de un instalador de emergencia. -->
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\empaquetar\recursos\icono-sos.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WebView2: el panel muestra la consola de operador embebida en vez de
+         obligar a salir al navegador. El runtime "Evergreen" viene con Edge y
+         por tanto de fabrica en Windows 10 y 11; aun asi el panel comprueba y
+         cae a abrir el navegador si no lo encuentra, porque quedarse sin
+         consola en mitad de una emergencia no es una opcion. -->
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3124.44" />
+  </ItemGroup>
 
 </Project>

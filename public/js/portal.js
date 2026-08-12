@@ -223,7 +223,7 @@ $('#buscarDirectorio').addEventListener('input', (evento) => {
   const texto = evento.target.value.trim();
   const contenedor = $('#resultadoDirectorio');
 
-  if (texto.length < 2) {
+  if (texto.length < 3) {
     contenedor.innerHTML = '';
     return;
   }
@@ -244,8 +244,7 @@ $('#buscarDirectorio').addEventListener('input', (evento) => {
       contenedor.innerHTML = personas
         .map((p) => `
           <div style="padding:.6rem 0;border-bottom:1px solid var(--borde)">
-            <strong>${escapar(p.nombre)}</strong>
-            <span style="color:var(--texto-suave);font-size:.85rem"> · ${escapar(p.codigo)}</span><br>
+            <strong>${escapar(p.nombre)}</strong><br>
             <span style="font-size:.85rem;color:var(--texto-suave)">${escapar(p.estadoEtiqueta)}${
               p.acompanantes ? ' · con ' + escapar(p.acompanantes) : ''
             }</span>

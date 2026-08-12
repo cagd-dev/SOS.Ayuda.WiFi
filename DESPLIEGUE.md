@@ -3,17 +3,22 @@
 Esta guía asume lo peor: no hay internet, no hay energía de red, hay ruido y prisa.
 Sigue los pasos en orden. Los que dicen **EN CASA** haz­los antes de salir.
 
+> **¿Solo quieres usarlo, sin programar nada?** Baja el instalador de la
+> [página de versiones](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases),
+> instálalo y salta al **paso 2**. No necesitas Node, ni .NET, ni tocar
+> una línea de código: todo viaja dentro.
+
 ---
 
 ## 1. Qué necesitas
 
 | Cosa | Detalle | Por qué |
 |---|---|---|
-| Router WiFi | Cualquiera comercial. Mejor si es de 2.4 GHz con antenas externas. | 2.4 GHz llega más lejos y atraviesa mejor escombro y pared que 5 GHz. |
-| PC o portátil | Con Node.js 22 o superior. | Es el servidor. Sin él no hay portal. |
-| Cable de red | Del PC al router, puerto **LAN** (no WAN). | El WiFi del PC lo dejamos libre. |
+| PC o portátil con Windows | 10 u 11. Con el instalador **no hace falta instalar nada más**. | Es el servidor. Sin él no hay portal. |
+| WiFi | Un **router** comercial (recomendado), **o** la tarjeta WiFi del propio equipo. | Es por donde entra la gente. Ver paso 3. |
+| Cable de red | Solo en modo router: del PC al puerto **LAN** (no WAN). | Deja libre el WiFi del PC. |
 | Energía | UPS, planta, inversor de carro o power bank con salida AC. | Router y PC deben durar lo que dure la operación. |
-| Cartel impreso | `public/cartel.html` → imprimir. | Si nadie sabe el nombre de la red, nadie se conecta. |
+| Cartel impreso | El panel lo genera listo para imprimir. | Si nadie sabe el nombre de la red, nadie se conecta. |
 
 **Autonomía real:** un router de casa consume 5-10 W, un portátil 20-45 W.
 Con una batería de carro de 60 Ah y un inversor tienes ~10-14 horas de los dos.
@@ -22,139 +27,165 @@ Con una batería de carro de 60 Ah y un inversor tienes ~10-14 horas de los dos.
 
 ## 2. EN CASA — preparar el equipo
 
-**Todo se hace desde `ARRANCAR.bat`.** Doble clic, acepta el aviso de Administrador,
-y se abre el **panel de mando**: una ventana con el estado arriba, los botones a la
-izquierda y el registro del servidor en vivo a la derecha.
+### Instalarlo
 
-Lo importante del panel: **el portal corre dentro de él**. No se abren ventanas de
-consola sueltas que salten al frente, y el log del servidor se ve en el mismo sitio
-donde están los botones.
+Baja **`SOS.Conectate.PideAyuda-Setup.exe`** de la
+[página de versiones](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases) y
+ejecútalo. Deja:
 
-| Zona | Qué tiene |
+- El programa en `C:\Program Files\SOS Conectate Pide Ayuda`
+- Los datos en `C:\ProgramData\SOS.Ayuda.WiFi` — separados a propósito, para que
+  actualizar o desinstalar el programa no toque el censo
+- Un acceso directo **SOS Panel de mando** en el escritorio y en el menú inicio
+
+> **¿Prefieres no instalar?** Está también el ZIP portátil: se descomprime en una
+> USB y se ejecuta `PanelSOS.exe`. En ese modo los datos viven **junto al
+> programa**, que es lo que se espera de algo que va en el bolsillo.
+
+### El panel de mando
+
+Abre **SOS Panel de mando** y acepta el aviso de Administrador (hace falta para los
+puertos 80, 443 y 53). Lo que ves:
+
+| Zona | Qué es |
 |---|---|
-| Cabecera | Portal corriendo/detenido, estado del DNS, aviso si el PIN sigue siendo el de fábrica |
-| Censo | Total, atrapados, heridos y mensajes sin leer, actualizado solo cada 3 s |
+| **Cabecera** | Estado del portal y del DNS, censo en vivo, y el botón **☰ Ajustes y herramientas** |
+| **Zona principal** | La **consola de operador embebida** — el puesto de trabajo real. Con pestañas para ver el portal como lo ve la gente, y el registro del servidor |
+| **Cajón de ajustes** | Todo lo demás: arrancar, configurar, exportar, cerrar la operación. Se abre y se cierra con el botón ☰ |
+
+El cajón arranca abierto (lo primero que hay que hacer es iniciar el portal) y **se
+recoge solo en cuanto el portal arranca**, porque a partir de ahí lo que importa es
+la consola. Vuelve con el mismo botón.
+
+Dentro del cajón, por secciones:
+
+| Sección | Qué tiene |
+|---|---|
 | Portal | Iniciar (puertos reales) · Iniciar en puertos altos · Iniciar en modo diagnóstico DNS · Detener |
-| Configuración | Nombre del puesto, PIN y tarjeta de red, editables ahí mismo. Botón para abrir los puertos en el firewall |
+| Modo de red | Router externo **o** punto de acceso propio (ver paso 3) |
+| Configuración | Nombre del puesto, PIN y tarjeta de red. Botón para abrir los puertos en el firewall |
 | Datos | Ver censo · Exportar CSV · Respaldar · Vaciar base |
+| Cierre de operación | Los tres pasos del cierre guiado (ver paso 7) |
 | Verificar | Diagnóstico · Prueba de humo · Emitir certificado nuevo del GPS |
-| Abrir en el navegador | Consola de operador · Portal · Cartel para imprimir |
+| Abrir en el navegador | Consola · Portal · Cartel para imprimir · Carpeta de datos |
 
 El panel **no deja hacer barbaridades**: no puedes vaciar la base con el portal
 encendido, avisa antes de cerrarse si el portal está corriendo, y pide confirmación
 para borrar o para emitir un certificado nuevo.
 
+### El PIN de operador
+
+**Se genera solo, aleatorio de seis dígitos, la primera vez que arranca.** Sale en
+el registro del arranque y en el cajón de ajustes. Anótalo: es lo que abre la
+consola, y detrás están los nombres, las cédulas y las ubicaciones de las víctimas.
+
+Puedes cambiarlo por uno que recuerdes desde **Ajustes → Configuración → PIN de
+operador → Guardar configuración**. Queda en `configuracion.json`, dentro de la
+carpeta de datos.
+
 ### Si el panel falla
 
-Cualquier error queda apuntado en **`datos/panel-error.log`** con fecha y traza
-completa. Es lo primero que hay que mirar, antes que el Visor de eventos.
+Cualquier error queda apuntado en **`panel-error.log`**, dentro de la carpeta de
+datos, con fecha y traza completa. Es lo primero que hay que mirar, antes que el
+Visor de eventos.
 
-Si el panel no abre en absoluto, usa `CONSOLA.bat`: hace exactamente lo mismo y no
+Si el panel no abre en absoluto, o si trabajas por escritorio remoto lento, está el
+**menú de texto**: `CONSOLA.bat` en la carpeta del programa. Hace lo mismo y no
 depende de .NET.
 
-### Si el panel no está disponible
+### Probar que todo responde antes de salir
 
-`CONSOLA.bat` abre el **menú de texto**, que hace exactamente lo mismo. Sirve por
-escritorio remoto lento, si falta .NET, o si el panel falla. Este es su aspecto:
+Dos comprobaciones, ambas en **Ajustes → Verificar**:
 
-```
-   Puesto  : Puesto de Mando SOS
-   IP      : 192.168.0.150  (automatica)
-   Portal  : detenido
-   Censo   : base vacia
-   PIN     : 1234   <-- CAMBIALO (opcion 5)
-   GPS     : certificado listo
+1. **Diagnóstico previo al despliegue.** Revisa red, puertos, firewall, tabla ARP y
+   batería. **No salgas a terreno hasta que diga `TODO LISTO`.**
+2. **Prueba de humo end-to-end.** Levanta el sistema entero y lo ejercita. No debe
+   fallar ninguna.
 
-   PORTAL
-    1. Iniciar el portal            (puertos 80 / 443 / 53)
-    2. Iniciar en puertos altos     (pruebas, sin Administrador)
-    3. Iniciar en modo diagnostico  (¿el portal no abre solo?)
-    4. Detener el portal
+Puede haber pruebas **omitidas**: no son fallos, son cosas que no se pudieron
+comprobar en ese arranque (por ejemplo el DNS, si el portal arrancó sin él).
 
-   CONFIGURAR
-    5. Cambiar el PIN de operador
-    6. Cambiar el nombre del puesto
-    7. Elegir la tarjeta de red / IP
-    8. Abrir los puertos en el firewall
+Después, **detén el portal y vacía la base**: la prueba crea personas de ejemplo y
+no pueden quedar mezcladas con gente real. El vaciado respalda antes de borrar y
+**conserva el certificado**, así los celulares que ya aceptaron el aviso no lo
+vuelven a ver.
 
-   DATOS
-    9. Ver resumen del censo
-   10. Exportar el censo a CSV
-   11. Respaldar la base de datos
-   12. Vaciar la base de datos
+> No borres la carpeta de datos a mano: ahí vive también el certificado del GPS, y
+> borrarlo obliga a todos los celulares a aceptar el aviso otra vez.
 
-   VERIFICAR
-   13. Diagnostico previo al despliegue
-   14. Prueba de humo end-to-end
-   15. Emitir un certificado nuevo para el GPS
+---
 
-    0. Salir
-```
+## 2 bis. Si vas a tocar el código
 
-**El portal arranca en su propia ventana**, así que este menú nunca se bloquea:
-puedes configurar, exportar o correr pruebas con el portal funcionando. Para
-detenerlo usa la **opción 4** (o Ctrl+C en la ventana del portal).
+Esta parte **no hace falta para operar**, solo para desarrollar.
 
-El `.bat` instala las dependencias solo la primera vez (necesita internet), libera
-el puerto 53 y aplica las reglas de firewall antes de abrir el panel.
+Necesitas **Node.js 22.5 o superior** (por `node:sqlite`) y, para el panel, el
+**SDK de .NET 8**. Con eso:
 
-Antes de salir, corre el **diagnóstico**: revisa red, puertos, firewall, ARP y
-batería. **No salgas a terreno hasta que diga `TODO LISTO`.**
+| Comando | Para qué |
+|---|---|
+| `npm start` | Levanta el sistema en los puertos 80 y 53 |
+| `npm run puertos-altos` | Igual, en 8080/8443/5354, sin necesitar Administrador |
+| `npm run consola` | El menú de texto |
+| `npm run diagnostico` | Chequeo previo al despliegue |
+| `npm run prueba` | Pruebas end-to-end (necesita el portal arriba) |
+| `npm run prueba-cierre` | Pruebas del cierre de operación (no necesita el portal) |
+| `npm run limpiar` | Respalda y vacía la base. Con `-- --todo` borra también el certificado |
 
-> Si prefieres la línea de comandos, todo tiene su equivalente:
-> `npm start`, `npm run diagnostico`, `npm run prueba`, `npm run limpiar`,
-> `npm run consola`.
+`ARRANCAR.bat` es el atajo de desarrollo: instala dependencias la primera vez,
+libera el puerto 53, aplica el firewall y abre el panel.
 
-### Compilar el panel (solo si hace falta)
-
-El ejecutable ya está en `panel/publicado/PanelSOS.exe`. Es **autocontenido**
-(~63 MB): no necesita que la VM tenga instalado .NET. Si alguna vez hay que
-regenerarlo, con el SDK de .NET 8 o superior:
+Para regenerar el ejecutable del panel:
 
 ```powershell
 cd panel
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publicado
+dotnet publish -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publicado
+```
+
+Y el distribuible completo (instalador + ZIP portátil):
+
+```powershell
+.\empaquetar\construir.ps1 -Instalador
 ```
 
 El panel **no reimplementa nada**: llama a los mismos scripts de Node que el menú
 de texto (`tools/estado.js`, `tools/exportar-csv.js`, `pruebas/humo.js`…). Por eso
 los dos siempre hacen exactamente lo mismo y no pueden desincronizarse.
 
-### Cambiar el PIN de operador
+---
 
-El PIN de fábrica es `1234`. En la consola hay nombres, cédulas y ubicaciones de
-víctimas, así que cámbialo: **`ARRANCAR.bat` → opción 5**. Queda guardado en
-`datos/configuracion.json` y se aplica al arrancar el portal.
+## 3. EN CASA — la red WiFi
 
-Mientras siga siendo `1234`, tanto el menú como el banner de arranque te lo
-recuerdan.
+Hay **dos modos**, y se eligen en el cajón de ajustes del panel.
 
-### Probar que todo responde
+### Modo router externo — el recomendado
 
-**Opción 14**. Si el portal no está corriendo, te ofrece arrancarlo en puertos altos
-y sigue sola. No debe fallar ninguna prueba.
+Un router comercial reparte el WiFi y el DHCP; el PC solo sirve el portal. Es el
+que da más alcance y aguanta más gente. Sigue leyendo el paso 3.1.
 
-Puede haber pruebas **omitidas**: no son fallos, son cosas que no se pudieron
-comprobar en ese arranque (por ejemplo el DNS, si el portal arrancó sin él).
+### Modo punto de acceso propio — sin router
 
-Después, detén el portal con la **opción 4** y vacía la base con la **opción 12** —
-la prueba crea personas de ejemplo y no deben quedar mezcladas con gente real.
+El WiFi lo levanta **la tarjeta del propio equipo** y el DHCP lo pone el sistema.
+Sirve cuando no hay router a mano, pero tiene dos límites serios:
 
-Respalda la base en `datos/respaldos/` antes de borrarla, y **conserva el
-certificado** — así los celulares que ya aceptaron el aviso no lo vuelven a ver.
-Si necesitas emitir uno nuevo (por ejemplo, porque cambió la IP), usa
-`npm run limpiar -- --todo`.
+- **Menos alcance y menos clientes** que cualquier router con antenas externas.
+- **No todas las tarjetas pueden.** Muchos adaptadores USB baratos no soportan ni
+  red hospedada ni SoftAP. El panel trae el botón **"¿Puede esta tarjeta ser punto
+  de acceso?"**, que responde SÍ o NO con el motivo concreto.
 
-> No borres la carpeta `datos/` a mano: ahí vive también el certificado, y
-> borrarlo hace que todos los celulares tengan que aceptar el aviso otra vez.
+Windows **no permite red hospedada abierta**, así que hay clave obligatoria. Para
+que la gente no dependa del cartel, el sistema puede **meter la clave dentro del
+nombre de la red**: `SOS-AYUDA-CLAVE-12345678`. Se lee directamente en la lista de
+redes del celular. El límite de un SSID son 32 bytes, y el panel avisa si no cabe.
 
 ---
 
-## 3. EN CASA — configurar el router
+## 3.1 Configurar el router
 
 Entra a la administración del router (normalmente `192.168.0.1` o `192.168.1.1`).
 
-### 3.1 La red WiFi
+### La red WiFi
 
 - **Nombre (SSID):** `SOS-AYUDA` — corto, en mayúsculas, reconocible.
 - **Seguridad:** **ABIERTA, sin contraseña.** Si pones clave, nadie entra.
@@ -166,7 +197,7 @@ Entra a la administración del router (normalmente `192.168.0.1` o `192.168.1.1`
   y ahí es donde vive el servidor. Si lo enciendes, prueba con un celular que el
   portal siga cargando; si no carga, apágalo.
 
-### 3.2 La parte que hace funcionar el portal cautivo
+### La parte que hace funcionar el portal cautivo
 
 En **DHCP / Red LAN**:
 
@@ -179,9 +210,11 @@ En **DHCP / Red LAN**:
    reiniciar. Si cambia, todo deja de funcionar.
 4. **Gateway/Puerta de enlace:** deja la del router.
 
-### 3.3 Configuración específica: Tenda AC23
+### Un ejemplo completo: Tenda AC23
 
-Ordenado por cuánto alcance real te da cada cosa.
+Es el router con el que se desarrolló y probó el sistema. **Los criterios valen para
+cualquier router**, solo cambian los nombres de los menús. Ordenado por cuánto
+alcance real te da cada cosa.
 
 | Dónde | Ajuste | Valor | Por qué |
 |---|---|---|---|
@@ -215,7 +248,7 @@ cubrir hacia abajo, inclina 2 o 3 hacia afuera.
 directo** (una batería cargada da 12.6–14.4 V). Usa un convertidor buck regulado a
 12.0 V — es mucho más eficiente que inversor a 110 V y de ahí al adaptador.
 
-### 3.4 El límite real no es el router
+### El límite real no es el router
 
 El AC23 grita fuerte: alta potencia y antenas de 6 dBi. **El celular no.** Responde
 con ~15 dBm y una antena diminuta dentro de una carcasa.
@@ -229,27 +262,27 @@ hasta donde vas a atender gente y comprueba que el **registro se completa de ver
 Ese punto donde deja de completarse es tu alcance real, y suele estar bastante antes
 de donde desaparecen las barras.
 
-### 3.5 Verificar con un celular de verdad
+### Verificar con un celular de verdad
 
-Enciende el servidor (`ARRANCAR.bat`), conecta un celular al WiFi y comprueba
-que **el formulario aparece solo**, sin teclear nada. Prueba con un Android **y**
-con un iPhone: se comportan distinto.
+Abre el panel, inicia el portal, conecta un celular al WiFi y comprueba que **el
+formulario aparece solo**, sin teclear nada. Prueba con un Android **y** con un
+iPhone: se comportan distinto.
 
 ---
 
 ## 4. EN TERRENO — arrancar
 
 1. Enciende router y PC. Cable del PC al puerto **LAN** del router.
-2. Doble clic en **`ARRANCAR.bat`**. Acepta el aviso de Administrador.
-3. Mira la cabecera del menú: confirma que la **IP** es la que configuraste en el
-   router y que el **PIN** ya no es `1234`. Si la IP está mal, opción 7.
-4. **Opción 1** para arrancar el portal. Se abre en su propia ventana y el menú
-   queda libre; confirma que la línea **DNS** dice *activo*.
-5. Abre la consola de operador: `http://<IP>/operador.html` y mete el PIN.
-6. Pega los carteles.
+2. Abre **SOS Panel de mando**. Acepta el aviso de Administrador.
+3. En **☰ Ajustes**, confirma que la **IP** es la que configuraste en el router.
+   Si está mal, elígela en *Tarjeta de red / IP del servidor* y guarda.
+4. **Iniciar el portal.** El cajón de ajustes se recoge solo y aparece la consola
+   de operador; confirma arriba que el chip del **DNS** dice *activo*.
+5. Mete el PIN en la consola y ya estás operando.
+6. Imprime y pega los carteles (**Ajustes → Cartel para imprimir**).
 
-> El portal corre aparte, así que puedes seguir usando el menú mientras atiende
-> gente: exportar el censo, respaldar, ver el resumen. Para detenerlo, **opción 4**.
+> Todo lo demás sigue disponible mientras atiendes gente: abre el cajón con ☰ para
+> exportar el censo, respaldar o ver el resumen, sin detener el portal.
 
 ### Colocación del router
 
@@ -264,9 +297,9 @@ con un iPhone: se comportan distinto.
 ### EL PORTAL NO ABRE SOLO — diagnóstico en orden
 
 Es el fallo más común. **No adivines: averigua primero dónde se corta.**
-Arranca con `ARRANCAR.bat` → **opción 3 (modo diagnóstico)**. Verás cada consulta
-DNS que llegue, con la IP del teléfono. Con eso en pantalla, olvida la red en un
-celular y vuelve a conectarte.
+En el panel, **☰ Ajustes → Iniciar en modo diagnóstico DNS**, y mira la pestaña
+**Registro**: verás cada consulta DNS que llegue, con la IP del teléfono. Con eso en
+pantalla, olvida la red en un celular y vuelve a conectarte.
 
 **Caso A — no aparece NINGUNA línea `[dns]`**
 
@@ -291,7 +324,8 @@ El celular no nos está preguntando. El problema está en el router, no aquí:
 
 El DNS funciona; el corte está en el HTTP:
 
-1. **Firewall** bloqueando el puerto 80. Opción 8 del menú, o `netsh` como Admin.
+1. **Firewall** bloqueando el puerto 80. **Ajustes → Abrir los puertos en el
+   firewall**, o `netsh` como Administrador.
 2. **Prueba directa:** desde el celular, entra a `http://<IP-del-servidor>`. Si el
    portal carga, es solo la detección automática lo que falla; si no carga, es
    firewall o ruta.
@@ -328,11 +362,18 @@ genera solo la primera vez.
 **El flujo que ve la persona:**
 
 1. Se registra normalmente (HTTP, sin ningún aviso raro).
-2. En la pantalla de "listo" aparece **"Enviar mi ubicación exacta (GPS)"**.
+2. En la pantalla de "listo" aparece **"Enviar mi ubicación exacta (GPS)"**. Dentro
+   del chat está siempre a mano en el botón **📍 Ubicación**, al lado de donde se
+   escribe.
 3. Al tocarlo **no se abre nada todavía**: primero sale una explicación con una
    maqueta del aviso que va a ver y qué botón exacto tocar en su navegador.
 4. Recién ahí se abre la ventana segura, acepta el aviso, da permiso de ubicación
    y las coordenadas llegan a la ficha.
+
+**Lo que ve el operador:** la coordenada llega al hilo del chat y a la ficha como
+un **enlace a Google Maps**, con un botón **copiar** al lado. El enlace necesita
+internet en el puesto de mando; el botón de copiar funciona siempre, y es lo que se
+dicta por radio a la brigada.
 
 **El aviso de certificado es inevitable** — no existe forma de tener un certificado
 válido sin internet. Por eso la pantalla previa es la pieza importante: sin ella la
@@ -340,8 +381,8 @@ gente se devuelve. Los textos ya están puestos para Chrome/Android, Safari/iPho
 y Firefox.
 
 **Si la persona abandona en el aviso no se pierde nada:** ya quedó registrada, y el
-GPS es solo un enriquecimiento. También queda disponible después desde el chat, en
-"Mi estado".
+GPS es solo un enriquecimiento. Puede volver a intentarlo cuando quiera desde el
+botón 📍 del chat.
 
 **Prueba esto con un celular real antes de salir.** Es la parte con más fricción de
 todo el sistema.
@@ -443,25 +484,27 @@ como una máquina más, que es justo lo que necesitamos.
 - **VirtualBox:** Red → Conectado a: **Adaptador puente** → Nombre: la tarjeta del router.
 - **Hyper-V:** crea un *Conmutador virtual* de tipo **Externo** ligado a la tarjeta física.
 
-Después, dentro de la VM, corre el **diagnóstico** (opción 13) y comprueba tres cosas:
+Después, dentro de la VM, corre el **diagnóstico** (**Ajustes → Verificar**) y
+comprueba tres cosas:
 
 1. **La IP detectada está en el mismo rango que el router.** Da igual cuál sea ese
    rango — `192.168.0.x`, `192.168.1.x`, `10.0.0.x` — el sistema no supone ninguno.
    Lo que no debe salir es una IP de VMware/VirtualBox (`10.0.2.x`, `172.16.x.x`):
-   eso significa NAT. Si hay varias tarjetas, fíjala con la opción 7.
+   eso significa NAT. Si hay varias tarjetas, elígela en *Ajustes → Configuración*.
 2. **La sección "Reconocimiento de teléfonos" dice OK.** Si dice que no ve
    dispositivos en tu segmento, casi siempre es NAT en vez de puente. Sin esto el
    portal funciona igual, pero quien pierda su código tendrá que registrarse otra vez.
-3. **El firewall.** La VM trae el suyo, independiente del anfitrión: opción 8.
+3. **El firewall.** La VM trae el suyo, independiente del anfitrión: *Ajustes →
+   Abrir los puertos en el firewall*.
 
 Esa IP detectada es la que va en el DHCP del router como DNS primario, y la que
 reservas por MAC.
 
 **Sobre el portátil:** llévalo aunque el servidor viva en la VM. Te sirve como
 consola de operador por WiFi (entra a `http://<IP>/operador.html`) y como respaldo
-completo: copias la carpeta, corres `ARRANCAR.bat` y tienes el sistema en pie otra
-vez. Si el servidor vive en el portátil, ten presente que **al cerrar la tapa se
-suspende y se cae el portal**: pon el plan de energía en "nunca suspender".
+completo: instala ahí el mismo `.exe` y tienes el sistema en pie otra vez. Si el
+servidor vive en el portátil, ten presente que **al cerrar la tapa se suspende y se
+cae el portal**: pon el plan de energía en "nunca suspender".
 
 ---
 

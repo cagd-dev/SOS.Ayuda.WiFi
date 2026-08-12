@@ -5,6 +5,76 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.3.0] — 2026-08-11
+
+### Seguridad
+
+- **Se podía robar la sesión de cualquier persona registrada.** El fallo tenía
+  dos mitades que por separado parecían inofensivas:
+
+  1. El tablón público devolvía el **código de recuperación** junto al nombre.
+  2. `/api/recuperar` comparaba el nombre con
+     `fila.nombre.startsWith(nombre.slice(0, 3))`, y con el nombre vacío eso es
+     `startsWith('')`, que es **cierto siempre**.
+
+  Encadenadas: cualquiera en la red buscaba en el tablón, se quedaba con un
+  código y lo cambiaba por el token de esa persona mandando el nombre en
+  blanco. Con el token entraba a su chat y le cambiaba estado, necesidades y
+  ubicación — podía marcar como «bien» a alguien atrapado.
+
+  Ahora el tablón **no publica el código**, el nombre se exige de verdad (tres
+  caracteres, comparación normalizada sin tildes) y la búsqueda por código es
+  exacta. Hay cuatro pruebas de regresión, una por eslabón.
+
+  Encontrado en una revisión externa de ChatGPT, que además lo reprodujo.
+
+- **El tablón público ya no busca por cédula.** Usaba la búsqueda del operador,
+  que casa nombre, documento, código y acompañantes: se tecleaban dígitos y
+  salían personas. Ahora busca solo por nombre, exige tres letras y tiene cuota
+  propia. La función ancha se eliminó del todo, para que nadie vuelva a
+  conectarla ahí sin darse cuenta.
+- Cuota también en `/api/directorio` y `/api/reconocer`, que no tenían.
+
+### Añadido
+
+- **Botón de ubicación en el chat**, al lado de donde se escribe. Mandar el GPS
+  es de las cosas más útiles que puede hacer una persona atrapada y estaba a
+  tres toques, enterrado dentro de «Mi estado», detrás de un botón que no lo
+  nombraba.
+- **La coordenada le llega al operador como enlace a Google Maps**, con un botón
+  de copiar al lado. El enlace sirve si el puesto de mando tiene internet; el
+  copiar funciona siempre, y es lo que se dicta por radio a la brigada.
+- **El panel de mando abre la consola de operador embebida.** Se instala, se
+  pulsa *Iniciar el portal* y ya se está trabajando: no hay que salir a buscar
+  un navegador ni recordar una dirección. El registro del servidor pasa a ser
+  una pestaña, junto a la vista del portal tal como lo ve la gente.
+
+### Cambiado
+
+- **Los ajustes del panel se recogen en un cajón** que gobierna un solo botón.
+  Arranca abierto, porque lo primero es iniciar el portal, y se cierra solo en
+  cuanto el portal arranca.
+- **Los paneles del chat se cierran de tres formas**: la X, el mismo botón que
+  los abrió y la tecla Escape. Antes solo existía la tercera, y la gente se
+  quedaba atascada dentro sin encontrar la salida.
+- **Documentación al día.** La guía de despliegue describía el `.bat` como la
+  forma de arrancar y daba por hecho un router; ya hay instalador y hay modo de
+  punto de acceso propio. Se reescribió entera, se separó lo que necesita quien
+  solo va a usarlo de lo que necesita quien va a tocar el código, y el ejemplo
+  del Tenda AC23 quedó marcado como ejemplo y no como requisito.
+- El PIN de fábrica `1234` seguía documentado en varios sitios pese a haberse
+  eliminado en la 1.1.0.
+- README orientado a que el proyecto **se encuentre**: qué problema resuelve en
+  la primera línea, resumen en inglés, términos de búsqueda y sección de
+  descarga para quien no programa.
+
+### Corregido
+
+- El `.exe` del panel ya no arrastra medio megabyte de documentación XML de sus
+  dependencias.
+
+---
+
 ## [1.2.0] — 2026-08-11
 
 ### Añadido

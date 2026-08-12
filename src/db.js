@@ -301,17 +301,34 @@ const personas = {
       });
   },
 
-  buscar(texto) {
+  /**
+   * Busqueda por nombre, y SOLO por nombre.
+   *
+   * Se llama asi a proposito. Antes habia una busqueda ancha que tambien casaba
+   * cedula, codigo y acompanantes, y era la que usaba el tablon publico: se
+   * tecleaban digitos y salian personas. El operador no la necesita — filtra en
+   * el cliente sobre la lista que ya tiene autenticada — asi que se quito.
+   *
+   * Si alguna vez hace falta buscar por cedula, que sea una funcion aparte y
+   * detras de la sesion del operador. Que el nombre diga el alcance evita que
+   * alguien la ensanche sin darse cuenta de a donde va conectada.
+   */
+  buscarPorNombre(texto) {
     const q = `%${String(texto || '').trim().toLowerCase()}%`;
     return db
-      .prepare(
-        `SELECT * FROM personas
-          WHERE lower(nombre) LIKE ? OR lower(COALESCE(documento,'')) LIKE ?
-             OR lower(COALESCE(acompanantes,'')) LIKE ? OR lower(codigo) LIKE ?
-          ORDER BY nombre`
-      )
-      .all(q, q, q, q)
+      .prepare('SELECT * FROM personas WHERE lower(nombre) LIKE ? ORDER BY nombre')
+      .all(q)
       .map(hidratar);
+  },
+
+  /**
+   * Busca por codigo exacto. El codigo es una credencial, asi que aqui no hay
+   * LIKE ni coincidencias parciales: o es, o no es.
+   */
+  porCodigo(codigo) {
+    const limpio = String(codigo || '').trim().toUpperCase();
+    if (!limpio) return null;
+    return hidratar(db.prepare('SELECT * FROM personas WHERE codigo = ?').get(limpio));
   },
 
   contar() {

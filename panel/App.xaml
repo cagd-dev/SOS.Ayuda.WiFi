@@ -74,6 +74,28 @@
       <Setter Property="Background" Value="#2D1214"/>
     </Style>
 
+    <!-- Pestanas de la zona principal. Se pintan a mano, y no con ToggleButton,
+         por la misma razon que el desplegable de mas abajo: los controles con
+         estado de Windows se dibujan con los colores del SISTEMA y con tema
+         oscuro quedan ilegibles. El code-behind mueve Tag entre "activa" y
+         vacio, y el disparador hace el resto. -->
+    <Style x:Key="Pestana" TargetType="Button" BasedOn="{StaticResource BotonBase}">
+      <Setter Property="Margin" Value="0,0,6,0"/>
+      <Setter Property="Padding" Value="14,7"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderBrush" Value="Transparent"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoSuave}"/>
+      <Style.Triggers>
+        <Trigger Property="Tag" Value="activa">
+          <Setter Property="Background" Value="{StaticResource Superficie2}"/>
+          <Setter Property="BorderBrush" Value="{StaticResource Borde}"/>
+          <Setter Property="Foreground" Value="{StaticResource Texto}"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+
     <Style x:Key="Titulo" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{StaticResource TextoSuave}"/>
       <Setter Property="FontSize" Value="11"/>

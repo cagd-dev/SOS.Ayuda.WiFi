@@ -67,6 +67,9 @@ function conectarWebSocket() {
     if (datos.tipo === 'ubicacion') {
       if (persona) persona.ubicacion = datos.ubicacion;
       $('#campoUbicacion').value = datos.ubicacion || '';
+      // Llego lo que el panel pedia: se cierra solo y deja ver el mensaje de
+      // sistema que confirma el envio.
+      cerrarPanel('panelGps');
     }
   });
 
@@ -205,12 +208,73 @@ $('#campoMensaje').addEventListener('input', (evento) => {
   evento.target.style.height = Math.min(evento.target.scrollHeight, 140) + 'px';
 });
 
-/* ---------------- Panel de estado ---------------- */
+/* ---------------- Paneles plegables ----------------
+ *
+ * Dos paneles ("Mi estado" y "Enviar mi ubicacion") que se abren sobre el
+ * chat. Solo uno a la vez: abrir el segundo cierra el primero, para que no se
+ * coman la lista de mensajes entre los dos.
+ *
+ * Salir tiene que ser tan facil como entrar. Se puede cerrar con la X, con el
+ * mismo boton que lo abrio y con Escape. En la version anterior el unico
+ * camino era volver a pulsar un boton que ya no decia lo que hacia, y la
+ * gente se quedaba atascada dentro del panel.
+ */
 
-$('#btnEstado').addEventListener('click', () => {
-  const panel = $('#panelEstado');
-  panel.hidden = !panel.hidden;
-  if (!panel.hidden) panel.scrollIntoView({ block: 'nearest' });
+const PANELES = {
+  panelEstado: '#btnEstado',
+  panelGps: '#btnUbicacion',
+};
+
+function cerrarPanel(id) {
+  const panel = document.getElementById(id);
+  if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  const boton = $(PANELES[id]);
+  if (boton) {
+    boton.setAttribute('aria-expanded', 'false');
+    if (boton.dataset.textoOriginal) boton.textContent = boton.dataset.textoOriginal;
+  }
+}
+
+function alternarPanel(id) {
+  const panel = document.getElementById(id);
+  if (!panel) return;
+  const seVaAAbrir = panel.hidden;
+
+  for (const otro of Object.keys(PANELES)) cerrarPanel(otro);
+  if (!seVaAAbrir) return;
+
+  panel.hidden = false;
+  const boton = $(PANELES[id]);
+  if (boton) {
+    boton.setAttribute('aria-expanded', 'true');
+    // Solo el boton de la cabecera cambia de texto: el de la barra es un icono
+    // y quedarse sin el pin lo volveria irreconocible.
+    if (boton.id === 'btnEstado') {
+      boton.dataset.textoOriginal = boton.dataset.textoOriginal || boton.textContent;
+      boton.textContent = 'Cerrar';
+    }
+  }
+  panel.scrollIntoView({ block: 'nearest' });
+  panel.querySelector('.cerrar-panel')?.focus({ preventScroll: true });
+}
+
+$('#btnEstado').addEventListener('click', () => alternarPanel('panelEstado'));
+
+$('#btnUbicacion').addEventListener('click', () => {
+  // El widget se monta al abrir y no antes: necesita la config del servidor,
+  // que puede tardar en llegar en una red saturada.
+  if (configServidor) montarBotonGps($('#zonaGpsChat'), token, configServidor);
+  alternarPanel('panelGps');
+});
+
+for (const boton of document.querySelectorAll('.cerrar-panel')) {
+  boton.addEventListener('click', () => cerrarPanel(boton.dataset.cierra));
+}
+
+document.addEventListener('keydown', (evento) => {
+  if (evento.key !== 'Escape') return;
+  for (const id of Object.keys(PANELES)) cerrarPanel(id);
 });
 
 function pintarPanelEstado() {
@@ -237,7 +301,6 @@ function pintarPanelEstado() {
     .join('');
 
   $('#campoUbicacion').value = persona.ubicacion || '';
-  montarBotonGps($('#zonaGpsChat'), token, configServidor);
 }
 
 $('#btnGuardarEstado').addEventListener('click', async () => {
@@ -256,7 +319,7 @@ $('#btnGuardarEstado').addEventListener('click', async () => {
     });
     const cuerpo = await respuesta.json();
     aplicarPersona(cuerpo.persona);
-    $('#panelEstado').hidden = true;
+    cerrarPanel('panelEstado');
     enviarMensaje(`[Actualice mi estado: ${cuerpo.persona.estadoEtiqueta}${
       necesidades.length ? ' · necesito ' + necesidades.join(', ') : ''
     }]`);
@@ -289,6 +352,9 @@ async function arrancar() {
     configServidor = await respConfig.json();
     $('#tituloChat').textContent = configServidor.puesto;
     aplicarPersona((await respYo.json()).persona);
+    // Se monta al arrancar, no al abrir el panel: asi el primer toque del boton
+    // ya encuentra el contenido listo en vez de un panel vacio.
+    montarBotonGps($('#zonaGpsChat'), token, configServidor);
     montarAvisoNavegador($('#zonaNavegador'), configServidor, { codigo: persona?.codigo });
 
     $('#listaMensajes').innerHTML = '';

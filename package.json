@@ -1,7 +1,34 @@
 {
   "name": "sos-conectate-pide-ayuda",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Portal cautivo de emergencia: censo de personas y chat con el puesto de mando. Funciona 100% sin internet.",
+  "keywords": [
+    "portal-cautivo",
+    "captive-portal",
+    "emergencia",
+    "emergency",
+    "desastres",
+    "disaster-response",
+    "terremoto",
+    "earthquake",
+    "offline",
+    "sin-internet",
+    "censo",
+    "missing-persons",
+    "wifi",
+    "dns-server",
+    "dhcp-server",
+    "humanitarian"
+  ],
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://github.com/cagd-dev/SOS.Ayuda.WiFi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cagd-dev/SOS.Ayuda.WiFi.git"
+  },
+  "bugs": {
+    "url": "https://github.com/cagd-dev/SOS.Ayuda.WiFi/issues"
+  },
   "private": true,
   "main": "src/server.js",
   "scripts": {

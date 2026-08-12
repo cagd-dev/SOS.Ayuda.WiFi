@@ -28,6 +28,101 @@ const COLOR_ESTADO = {
   herido_leve: 'var(--alerta)', busca: 'var(--info)', bien: 'var(--ok)',
 };
 
+/* ---------------- Coordenadas ----------------
+ *
+ * El GPS llega dentro de un texto: "GPS: 4.609710, -74.081750 (+/- 13 m)".
+ * Para el operador eso es un numero que hay que copiar a mano a otro sitio, y
+ * a mano se cometen errores que mandan una brigada a otra cuadra.
+ *
+ * Se ofrecen dos salidas, porque la red de emergencia NO tiene internet:
+ *   - Abrir en Google Maps, para cuando el puesto de mando si tiene datos.
+ *   - Copiar la coordenada, que funciona siempre y es lo que se dicta por radio.
+ */
+const RE_COORDENADAS = /(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/;
+
+function urlMapa(lat, lon) {
+  return `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+}
+
+/**
+ * Copia al portapapeles.
+ *
+ * navigator.clipboard NO existe fuera de contexto seguro, y la consola se sirve
+ * por HTTP: desde otro equipo de la red esa API viene sin definir. Por eso el
+ * respaldo con execCommand, que esta deprecado pero es el unico que funciona
+ * ahi. En localhost (el panel del propio puesto) si entra por el primer camino.
+ */
+async function copiarAlPortapapeles(texto) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto);
+      return true;
+    }
+  } catch { /* caemos al respaldo */ }
+
+  try {
+    const area = document.createElement('textarea');
+    area.value = texto;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const salio = document.execCommand('copy');
+    area.remove();
+    return salio;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Devuelve el texto como nodos, con la coordenada (si la hay) convertida en
+ * enlace a Google Maps y un boton para copiarla. Se construye con nodos y no
+ * con innerHTML: aqui entra texto que escribio la persona.
+ */
+function conCoordenadas(texto) {
+  const fragmento = document.createDocumentFragment();
+  const cadena = String(texto ?? '');
+  const encontrado = RE_COORDENADAS.exec(cadena);
+
+  if (!encontrado) {
+    fragmento.append(cadena);
+    return fragmento;
+  }
+
+  const [coincidencia, lat, lon] = encontrado;
+  const inicio = encontrado.index;
+
+  fragmento.append(cadena.slice(0, inicio));
+
+  const enlace = document.createElement('a');
+  enlace.href = urlMapa(lat, lon);
+  enlace.target = '_blank';
+  enlace.rel = 'noopener noreferrer';
+  enlace.className = 'coordenada';
+  enlace.title = 'Abrir en Google Maps (necesita internet)';
+  enlace.textContent = coincidencia;
+  fragmento.append(enlace);
+
+  const copiar = document.createElement('button');
+  copiar.type = 'button';
+  copiar.className = 'copiar-coordenada';
+  copiar.textContent = 'copiar';
+  copiar.title = 'Copiar la coordenada (funciona sin internet)';
+  copiar.addEventListener('click', async (evento) => {
+    evento.preventDefault();
+    evento.stopPropagation();
+    const listo = await copiarAlPortapapeles(`${lat}, ${lon}`);
+    copiar.textContent = listo ? 'copiada' : 'no se pudo';
+    setTimeout(() => { copiar.textContent = 'copiar'; }, 1800);
+  });
+  fragmento.append(copiar);
+
+  fragmento.append(cadena.slice(inicio + coincidencia.length));
+  return fragmento;
+}
+
 /* ---------------- Acceso ---------------- */
 
 async function entrar() {
@@ -175,9 +270,23 @@ async function seleccionar(id) {
     ['Registrado', new Date(persona.creado_en).toLocaleString('es-CO')],
   ].filter(([, valor]) => valor !== null && valor !== undefined && valor !== '');
 
-  $('#fichaDatos').innerHTML = filas
-    .map(([clave, valor]) => `<dt>${clave}</dt><dd>${escapar(valor).replace(/\n/g, '<br>')}</dd>`)
-    .join('');
+  // La ficha se arma con nodos y no con innerHTML porque la ubicacion lleva
+  // dentro el enlace al mapa y un boton con su propio manejador.
+  const ficha = $('#fichaDatos');
+  ficha.innerHTML = '';
+  for (const [clave, valor] of filas) {
+    const dt = document.createElement('dt');
+    dt.textContent = clave;
+    const dd = document.createElement('dd');
+
+    const lineas = String(valor).split('\n');
+    lineas.forEach((linea, indice) => {
+      if (indice) dd.appendChild(document.createElement('br'));
+      dd.appendChild(conCoordenadas(linea));
+    });
+
+    ficha.append(dt, dd);
+  }
 
   $('#campoNotas').value = persona.notas || '';
   $('#btnAtendido').textContent = persona.atendido ? 'Reabrir caso' : 'Marcar atendido';
@@ -206,7 +315,10 @@ function pintarMensaje(mensaje) {
   burbuja.className = `burbuja ${claseDireccion}`;
 
   if (mensaje.direccion === 'sistema') {
-    burbuja.textContent = mensaje.texto;
+    // Aqui caen los avisos de "Ubicacion GPS recibida": es donde el operador
+    // ve llegar la coordenada en vivo, asi que es donde mas falta hace el
+    // enlace al mapa.
+    burbuja.appendChild(conCoordenadas(mensaje.texto));
   } else {
     const autor = document.createElement('span');
     autor.className = 'autor';
@@ -214,7 +326,7 @@ function pintarMensaje(mensaje) {
     burbuja.appendChild(autor);
 
     const texto = document.createElement('span');
-    texto.textContent = mensaje.texto;
+    texto.appendChild(conCoordenadas(mensaje.texto));
     burbuja.appendChild(texto);
 
     const hora = document.createElement('span');
