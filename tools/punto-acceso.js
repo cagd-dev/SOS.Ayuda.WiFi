@@ -84,8 +84,15 @@ async function iniciar() {
   const { ssid, clave, ip, mascara } = config.puntoAcceso;
   console.log(`\n  Configurando la red "${ssid}"...`);
 
-  const conf = await ap.configurar({ ssid, clave });
-  if (!conf.ok) { console.log(`  FALLO: ${conf.error}\n`); process.exit(1); }
+  // configurar() es "netsh wlan set hostednetwork", que solo tiene sentido para
+  // la red hospedada: exige Administrador y no aporta nada por Wi-Fi Direct,
+  // donde el nombre y la clave viajan directos al anuncio. Pedirle permisos de
+  // administrador al operador para un comando que no vamos a usar es la clase
+  // de friccion que hace que algo "no funcione" sin motivo real.
+  if (soporte.mecanismo !== 'wifidirect') {
+    const conf = await ap.configurar({ ssid, clave });
+    if (!conf.ok) { console.log(`  FALLO: ${conf.error}\n`); process.exit(1); }
+  }
 
   // El SSID y la clave van SIEMPRE: la red hospedada ya los tiene guardados de
   // configurar(), pero Wi-Fi Direct los necesita al publicar el anuncio.
@@ -97,26 +104,25 @@ async function iniciar() {
     console.log(`  OJO: esta tarjeta admite ${arranque.maximo} telefono/s a la vez como maximo.`);
   }
 
+  // Por Wi-Fi Direct NO se le cambia la IP a la tarjeta: Windows levanta con
+  // ella su Conexion Compartida (ICS) anclada a 192.168.137.1, y moverla rompe
+  // el reparto de direcciones. Medido con un telefono real. Solo se avisa.
+  if (arranque.mecanismo === 'wifidirect') {
+    const actual = await ap.ipDelPuntoAcceso();
+    if (actual) {
+      console.log(`  La tarjeta esta en ${actual}: el portal debe arrancar en ese segmento.`);
+      console.log('  El portal lo hace solo; no le cambies la IP a la tarjeta.');
+    }
+    console.log('\n  Ahora arranca el portal en modo propio.\n');
+    return;
+  }
+
   const adaptador = config.puntoAcceso.adaptador || await ap.adaptadorHospedado();
   if (adaptador) {
     const fijada = await ap.fijarIp({ adaptador, ip, mascara });
-    if (fijada.ok) {
-      console.log(`  IP ${ip} fijada en "${adaptador}".`);
-    } else {
-      console.log(`  AVISO: no se pudo fijar la IP: ${fijada.error}`);
-
-      // Windows le pone IP sola a la tarjeta de Wi-Fi Direct (192.168.137.1).
-      // Si no se pudo cambiar —tipicamente por no estar elevado— hay que
-      // decirlo con la direccion real delante: repartir DHCP en un segmento y
-      // tener la tarjeta en otro es un fallo que parece "el portal no carga"
-      // y no tiene nada que ver con el portal.
-      const actual = await ap.ipDelPuntoAcceso();
-      if (actual) {
-        console.log(`         La tarjeta se quedo en ${actual}.`);
-        console.log(`         O lanzas esto como Administrador, o configuras el modo`);
-        console.log(`         propio con ${actual} para que el DHCP reparta en su segmento.`);
-      }
-    }
+    console.log(fijada.ok
+      ? `  IP ${ip} fijada en "${adaptador}".`
+      : `  AVISO: no se pudo fijar la IP: ${fijada.error}`);
   } else {
     console.log('  AVISO: no se encontro la tarjeta virtual para fijarle la IP.');
     console.log(`         Ponsela a mano: ${ip} / ${mascara}`);

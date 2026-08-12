@@ -61,10 +61,18 @@ netsh advfirewall firewall delete rule name="SOS Portal HTTP" >nul 2>&1
 netsh advfirewall firewall delete rule name="SOS Portal HTTPS" >nul 2>&1
 netsh advfirewall firewall delete rule name="SOS Portal DNS" >nul 2>&1
 netsh advfirewall firewall delete rule name="SOS Portal DHCP" >nul 2>&1
+netsh advfirewall firewall delete rule name="SOS Portal HTTP alto" >nul 2>&1
+netsh advfirewall firewall delete rule name="SOS Portal HTTPS alto" >nul 2>&1
+netsh advfirewall firewall delete rule name="SOS Portal DNS alto" >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal HTTP" dir=in action=allow protocol=TCP localport=80 >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal HTTPS" dir=in action=allow protocol=TCP localport=443 >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal DNS" dir=in action=allow protocol=UDP localport=53 >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal DHCP" dir=in action=allow protocol=UDP localport=67 >nul 2>&1
+REM Puertos altos: "iniciar en puertos altos" no sirve de nada si el firewall
+REM los bloquea. El celular se conecta, recibe direccion, y el portal no carga.
+netsh advfirewall firewall add rule name="SOS Portal HTTP alto" dir=in action=allow protocol=TCP localport=8080 >nul 2>&1
+netsh advfirewall firewall add rule name="SOS Portal HTTPS alto" dir=in action=allow protocol=TCP localport=8443 >nul 2>&1
+netsh advfirewall firewall add rule name="SOS Portal DNS alto" dir=in action=allow protocol=UDP localport=5354 >nul 2>&1
 
 REM --- Panel grafico ---
 if exist "PanelSOS.exe" (

@@ -218,12 +218,23 @@ async function configurar({ ssid, clave }) {
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-let procesoDirect = null;
-
+/**
+ * El anuncio vive mientras viva el proceso que lo publica. Eso obliga a soltar
+ * el hijo con unref(): si no, quien lo lanza no puede terminar nunca —Node se
+ * queda esperando— y la herramienta de linea de comandos, o el panel que la
+ * invoca, se cuelgan para siempre esperando una red que ya esta levantada.
+ *
+ * OJO: unref() SI, detached NO. Medido en esta misma maquina:
+ *
+ *   sin detached : LISTO, y el anuncio sigue vivo
+ *   con detached : el proceso sale con codigo 0 al instante y sin emitir nada
+ *
+ * Al quedar suelto, la red sobrevive a quien la levanto. El precio es que
+ * detener() ya no puede guardarse una referencia: tiene que salir a buscar el
+ * proceso por su linea de comandos. Ver detenerWifiDirect().
+ */
 function iniciarWifiDirect({ ssid, clave }) {
   return new Promise((resolver) => {
-    if (procesoDirect) return resolver({ ok: true, error: null });
-
     const hijo = spawn('powershell', [
       '-NoProfile', '-ExecutionPolicy', 'Bypass',
       '-File', path.join(__dirname, 'wifidirect.ps1'),
@@ -242,7 +253,11 @@ function iniciarWifiDirect({ ssid, clave }) {
     hijo.stdout.on('data', (d) => {
       salida += d.toString();
       if (/^LISTO:/m.test(salida)) {
-        procesoDirect = hijo;
+        // Confirmado que la red esta arriba: se sueltan las tuberias y se deja
+        // de contarlo como hijo, para que este proceso pueda terminar.
+        hijo.stdout.destroy();
+        hijo.stderr.destroy();
+        hijo.unref();
         terminar({ ok: true, error: null });
       }
       const fallo = salida.match(/^ERROR:\s*(.+)$/m);
@@ -252,7 +267,6 @@ function iniciarWifiDirect({ ssid, clave }) {
     hijo.stderr.on('data', (d) => { salida += d.toString(); });
 
     hijo.on('close', () => {
-      procesoDirect = null;
       terminar({ ok: false, error: salida.trim() || 'El anuncio de Wi-Fi Direct no arranco.' });
     });
 
@@ -308,12 +322,29 @@ async function iniciar(opciones = {}) {
   return { ok: false, error: pista };
 }
 
+/**
+ * Mata el proceso que publica el anuncio, buscandolo por su linea de comandos.
+ *
+ * No se puede guardar una referencia: el proceso va suelto a proposito, para
+ * que la red sobreviva a quien la levanto. Asi que quien quiera bajarla —otra
+ * corrida de la herramienta, el panel, o el operador tres horas despues— tiene
+ * que salir a encontrarlo.
+ */
+async function detenerWifiDirect() {
+  const r = await correr('powershell', ['-NoProfile', '-Command',
+    "$p = Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | " +
+    "Where-Object { $_.CommandLine -match 'wifidirect\\.ps1' }; " +
+    'if (-not $p) { Write-Output "NINGUNO"; exit 0 }; ' +
+    '$p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
+    'Write-Output "DETENIDOS"']);
+
+  return /DETENIDOS/.test(r.texto) ? 'detenido' : 'ninguno';
+}
+
 async function detener() {
-  if (procesoDirect) {
-    try { procesoDirect.kill(); } catch { /* ya murio */ }
-    procesoDirect = null;
-    return { ok: true, error: null };
-  }
+  const wifi = await detenerWifiDirect();
+  if (wifi === 'detenido') return { ok: true, error: null };
+
   const r = await correr('netsh', ['wlan', 'stop', 'hostednetwork']);
   return { ok: r.ok, error: r.ok ? null : r.texto.trim() };
 }
@@ -330,14 +361,22 @@ async function detener() {
  * conexion". Pelearse con eso no aporta nada —y ademas exige Administrador—,
  * asi que se lee y se usa la que ya esta.
  */
-async function ipDelPuntoAcceso() {
+async function ipsDelPuntoAcceso() {
   const r = await correr('powershell', ['-NoProfile', '-Command',
     "Get-NetAdapter | Where-Object { $_.InterfaceDescription -match 'Hosted Network Virtual|Wi-Fi Direct Virtual' -and $_.Status -eq 'Up' } | " +
-    'ForEach-Object { (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress } | ' +
-    'Select-Object -First 1']);
+    'ForEach-Object { (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress }']);
 
-  const ip = (r.texto || '').trim().split('\n')[0].trim();
-  return /^\d+\.\d+\.\d+\.\d+$/.test(ip) ? ip : null;
+  return String(r.texto || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => /^\d+\.\d+\.\d+\.\d+$/.test(l));
+}
+
+async function ipDelPuntoAcceso() {
+  // La que pone Windows es 192.168.137.1. Si hay varias, esa es la buena: las
+  // otras son restos de haberle fijado una a mano alguna vez.
+  const todas = await ipsDelPuntoAcceso();
+  return todas.find((ip) => ip.startsWith('192.168.137.')) || todas[0] || null;
 }
 
 /** 255.255.255.0 -> 24. New-NetIPAddress trabaja con longitud de prefijo. */
@@ -423,5 +462,5 @@ async function adaptadorHospedado() {
 
 module.exports = {
   soportado, estado, configurar, iniciar, detener, fijarIp, adaptadorHospedado,
-  componerSsid, ipDelPuntoAcceso,
+  componerSsid, ipDelPuntoAcceso, ipsDelPuntoAcceso,
 };

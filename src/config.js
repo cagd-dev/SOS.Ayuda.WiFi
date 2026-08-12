@@ -201,7 +201,42 @@ const config = {
   listarIpsLan,
 };
 
-config.urlBase = `http://${config.ip}${config.puertoHttp === 80 ? '' : ':' + config.puertoHttp}`;
-config.urlSegura = `https://${config.ip}${config.puertoHttps === 443 ? '' : ':' + config.puertoHttps}`;
+function recalcularUrls() {
+  config.urlBase = `http://${config.ip}${config.puertoHttp === 80 ? '' : ':' + config.puertoHttp}`;
+  config.urlSegura = `https://${config.ip}${config.puertoHttps === 443 ? '' : ':' + config.puertoHttps}`;
+}
+recalcularUrls();
+
+/**
+ * Adopta la IP que Windows le puso a la tarjeta del punto de acceso.
+ *
+ * Al levantar Wi-Fi Direct, Windows le asigna 192.168.137.1 a la tarjeta
+ * virtual, y cambiarla exige Administrador. Cuando no se puede, pelearse con
+ * eso sale carisimo: el telefono se conecta a la red, ve la senal llena, y el
+ * portal no carga nunca — porque el DHCP le reparte direcciones de un segmento
+ * donde no hay nadie escuchando. Un fallo que parece "no funciona el portal" y
+ * no tiene absolutamente nada que ver con el portal.
+ *
+ * Asi que si no se puede mandar, se obedece: el servidor se muda al segmento de
+ * la tarjeta y el DHCP reparte ahi.
+ *
+ * Hay que llamarlo ANTES de crear los servidores: la URL base, el certificado
+ * y el rango del DHCP se calculan a partir de esta IP.
+ */
+function adoptarIp(nueva) {
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(String(nueva || ''))) return false;
+  if (nueva === config.ip) return false;
+
+  const base = nueva.split('.').slice(0, 3).join('.');
+
+  config.ip = nueva;
+  config.puntoAcceso.ip = nueva;
+  config.puntoAcceso.desde = `${base}.50`;
+  config.puntoAcceso.hasta = `${base}.200`;
+  recalcularUrls();
+  return true;
+}
+
+config.adoptarIp = adoptarIp;
 
 module.exports = config;

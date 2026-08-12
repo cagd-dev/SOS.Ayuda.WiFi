@@ -388,7 +388,46 @@ public sealed class Nodo
 /// <summary>Lee y escribe datos/configuracion.json, el mismo que usa Node.</summary>
 public static class Ajustes
 {
-    private static string Ruta => Path.Combine(Proyecto.Raiz, "datos", "configuracion.json");
+    /// <summary>
+    /// Carpeta de datos REAL, la misma que usa el servidor.
+    ///
+    /// La marca .instalado la pone el instalador y significa que los datos van
+    /// a ProgramData, no junto al programa (que ademas es de solo lectura para
+    /// el operador). Es exactamente la regla de src/config.js, y el panel no la
+    /// conocia: guardaba en "Archivos de programa\...\datos", el servidor leia
+    /// de ProgramData, y el resultado era un panel que decia "configuracion
+    /// guardada" mientras el portal seguia arrancando con los valores viejos.
+    /// Cambiar el nombre de la red parecia imposible.
+    ///
+    /// Puede fijarla estadoFolder(), que recibe lo que reporta tools/estado.js:
+    /// esa es la fuente de verdad, y esto es solo el respaldo por si el estado
+    /// no ha llegado todavia.
+    /// </summary>
+    private static string? _carpetaForzada;
+
+    public static void UsarCarpeta(string? carpeta)
+    {
+        if (!string.IsNullOrWhiteSpace(carpeta)) _carpetaForzada = carpeta;
+    }
+
+    private static string Carpeta
+    {
+        get
+        {
+            if (_carpetaForzada is not null) return _carpetaForzada;
+
+            if (File.Exists(Path.Combine(Proyecto.Raiz, ".instalado")))
+            {
+                var comun = Environment.GetEnvironmentVariable("ProgramData")
+                            ?? @"C:\ProgramData";
+                return Path.Combine(comun, "SOS.Ayuda.WiFi");
+            }
+
+            return Path.Combine(Proyecto.Raiz, "datos");
+        }
+    }
+
+    private static string Ruta => Path.Combine(Carpeta, "configuracion.json");
 
     /// <summary>Mezcla los cambios sobre lo ya guardado, sin perder lo demas.</summary>
     public static void Guardar(IDictionary<string, object?> cambios)

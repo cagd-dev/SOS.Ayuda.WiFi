@@ -3,7 +3,7 @@
 ![SOS · Conéctate · Pide Ayuda — portal cautivo de emergencia para localizar personas tras un desastre](empaquetar/recursos/github-social.jpg)
 
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.6.0-blue.svg)](CHANGELOG.md)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.6.1-blue.svg)](CHANGELOG.md)
 [![Pruebas](https://img.shields.io/badge/pruebas-154%20OK-brightgreen.svg)](pruebas/humo.js)
 [![Descargar](https://img.shields.io/badge/descargar-Windows-orange.svg)](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases)
 

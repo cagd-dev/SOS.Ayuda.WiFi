@@ -72,26 +72,40 @@ function montarAvisoNavegador(contenedor, configServidor, opciones = {}) {
   bloque.querySelector('#btnSalirPortal').addEventListener('click', async (evento) => {
     const boton = evento.currentTarget;
     boton.disabled = true;
-    boton.textContent = 'Saliendo...';
+    boton.textContent = 'Preparando la salida...';
 
+    let liberado = false;
     try {
       const respuesta = await fetch('/api/salir', { method: 'POST', headers: { Accept: 'application/json' } });
-      const datos = await respuesta.json();
-
-      // Navegar a la sonda del propio sistema es lo que dispara la
-      // comprobacion: como el servidor ya responde "hay internet" para este
-      // dispositivo, el telefono da la red por buena y cierra la ventanita.
-      if (datos.sonda) location.href = datos.sonda;
+      liberado = (await respuesta.json()).ok === true;
     } catch { /* sin red: quedan los pasos a mano */ }
 
-    // Si en un segundo y medio seguimos aqui, el sistema no cerro la ventana.
-    setTimeout(() => {
-      pasos.hidden = false;
-      boton.disabled = false;
-      boton.textContent = 'Reintentar salida';
-      bloque.querySelector('#btnCopiarDireccion')
-        ?.addEventListener('click', (e) => copiar(`http://${direccion}`, e.target), { once: false });
-    }, 1500);
+    /* NO se navega a ningun sitio.
+     *
+     * La version anterior mandaba la ventana a la sonda del sistema para
+     * forzar la comprobacion. Y funcionaba... pero si el telefono NO cerraba
+     * la ventanita, la persona se quedaba mirando la respuesta cruda de la
+     * sonda —una pagina en blanco— sin ningun camino de vuelta: al navegar,
+     * esta pagina moria y con ella el aviso con los pasos manuales.
+     *
+     * Ahora solo se libera el dispositivo y se explica que va a pasar. El
+     * sistema vuelve a sondear por su cuenta cada pocos segundos, encuentra
+     * que "hay internet" y cierra la ventanita el solo. Si no lo hace, los
+     * pasos manuales estan aqui mismo, que es donde tienen que estar.
+     */
+    boton.hidden = true;
+    pasos.hidden = false;
+
+    const aviso = document.createElement('p');
+    aviso.style.fontWeight = '700';
+    aviso.style.margin = '0 0 .5rem';
+    aviso.textContent = liberado
+      ? 'Listo. Esta ventana se cerrara sola en unos segundos y el WiFi se queda conectado.'
+      : 'No se pudo avisar al servidor. Sal a mano con estos pasos:';
+    pasos.prepend(aviso);
+
+    bloque.querySelector('#btnCopiarDireccion')
+      ?.addEventListener('click', (e) => copiar(`http://${direccion}`, e.target));
   });
 }
 

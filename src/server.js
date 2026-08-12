@@ -67,7 +67,91 @@ function linea(caracter = '─', largo = 66) {
   return caracter.repeat(largo);
 }
 
+/**
+ * Levanta la red WiFi propia, si toca, y deja la IP cuadrada.
+ *
+ * El portal es el DUENO de esa red: por Wi-Fi Direct el anuncio vive mientras
+ * viva el proceso que lo publica, y eso no puede colgar de una herramienta de
+ * linea de comandos que termina — medido, la red se caia en cuanto el comando
+ * volvia. El unico proceso que dura lo que dura la operacion es este.
+ *
+ * Con red hospedada o Soft AP no se toca nada: esa red la levanta el operador
+ * desde el panel y sobrevive por su cuenta, porque netsh la deja puesta en el
+ * sistema.
+ */
+async function levantarRedPropia() {
+  if (config.modo !== 'propio') return { punto: null, avisoPunto: null };
+
+  try {
+    const puntoAcceso = require('./puntoacceso');
+    const capacidad = await puntoAcceso.soportado();
+
+    if (!capacidad.soportado) return { punto: null, avisoPunto: capacidad.motivo };
+    if (capacidad.mecanismo !== 'wifidirect') return { punto: null, avisoPunto: null };
+
+    const ap = config.puntoAcceso;
+    const arranque = await puntoAcceso.iniciar({ ssid: ap.ssid, clave: ap.clave });
+    if (!arranque.ok) return { punto: null, avisoPunto: arranque.error };
+
+    console.log(`\n  Red WiFi "${ap.ssid}" levantada por Wi-Fi Direct` +
+                `${arranque.maximo ? ` (tope: ${arranque.maximo} telefonos)` : ''}`);
+
+    /* NO se le cambia la IP a la tarjeta. Se adopta la que Windows le puso.
+     *
+     * Esto va contra la intuicion y esta medido en terreno con un telefono de
+     * verdad. Con Wi-Fi Direct, Windows levanta ademas su servicio de Conexion
+     * Compartida (ICS), que se queda anclado a 192.168.137.1 sirviendo DHCP.
+     * Nuestro servidor convive con el sin problema mientras la tarjeta siga en
+     * ese segmento.
+     *
+     *   tarjeta en 192.168.137.1  ->  el telefono recibe direccion  [OK]
+     *   tarjeta movida a otra IP  ->  deja de recibir               [FALLA]
+     *
+     * Y lo peor es que solo falla CON permisos de Administrador, que es
+     * justamente como corre el panel: sin elevar, el cambio de IP no se podia
+     * hacer y todo funcionaba. Un arreglo que solo rompe cuando tiene permiso
+     * para actuar es de los que cuesta mucho encontrar.
+     *
+     * Asi que aqui no se manda: se obedece.
+     */
+    const todas = await puntoAcceso.ipsDelPuntoAcceso();
+    const real = await puntoAcceso.ipDelPuntoAcceso();
+    if (real && config.adoptarIp(real)) {
+      console.log(`  Windows le puso ${real} a la tarjeta; el portal y el DHCP se mudan ahi.`);
+      console.log('  (Wi-Fi Direct necesita su propio segmento: cambiarselo rompe el DHCP.)');
+    }
+
+    // Dos IPv4 en la misma tarjeta rompen el enrutamiento sin decir nada: el
+    // telefono se conecta, recibe direccion, y las consultas de DNS no llegan
+    // a ningun sitio. Pasa si alguna vez se le fijo una IP a mano. Cuesta
+    // horas encontrarlo, asi que aqui se dice a la cara.
+    if (todas.length > 1) {
+      const sobran = todas.filter((ip) => ip !== real);
+      console.log('');
+      console.log(`  ATENCION: la tarjeta tiene ${todas.length} direcciones IPv4: ${todas.join(', ')}`);
+      console.log('  Con mas de una, el portal cautivo NO se abre solo aunque todo lo demas');
+      console.log('  parezca correcto. Quita la que sobra, como Administrador:');
+      for (const ip of sobran) {
+        console.log(`      Remove-NetIPAddress -IPAddress ${ip} -Confirm:$false`);
+      }
+    }
+
+    return { punto: puntoAcceso, avisoPunto: null };
+  } catch (err) {
+    return { punto: null, avisoPunto: err.message };
+  }
+}
+
 async function arrancar() {
+  /* La red WiFi propia se levanta LO PRIMERO, antes de crear nada.
+   *
+   * El orden importa: la URL del portal, el certificado del canal seguro y el
+   * rango del DHCP se calculan a partir de la IP, y esa IP puede cambiar aqui.
+   * Windows le asigna 192.168.137.1 a la tarjeta de Wi-Fi Direct y cambiarla
+   * exige Administrador; cuando no se puede, nos mudamos a su segmento en vez
+   * de repartir direcciones donde no hay nadie escuchando. */
+  const { punto, avisoPunto } = await levantarRedPropia();
+
   const app = crearApp();
   const servidor = http.createServer(app);
   iniciarWs(servidor, { sesionValida });
@@ -238,6 +322,13 @@ async function arrancar() {
     console.log(`    teclear ${config.urlBase} a mano.`);
   }
 
+  if (avisoPunto) {
+    console.log('');
+    console.log('  AVISO — la red WiFi propia no se levanto:');
+    for (const l of String(avisoPunto).split('\n')) console.log(`    ${l}`);
+    console.log('    Sin red WiFi no hay a que conectarse. Usa el modo router.');
+  }
+
   if (avisoDhcp) {
     console.log('');
     console.log('  AVISO — el DHCP no arranco:');
@@ -292,6 +383,12 @@ async function arrancar() {
     anunciarApagado();
     await dns?.cerrar?.().catch(() => {});
     await dhcp?.cerrar?.().catch(() => {});
+    // Si la levantamos nosotros, la bajamos nosotros: dejar una red WiFi
+    // emitiendo despues de apagar el portal seria peor que no levantarla.
+    if (punto) {
+      console.log('  Bajando la red WiFi...');
+      await punto.detener().catch(() => {});
+    }
     servidorSeguro?.close();
     servidor.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 3000).unref();

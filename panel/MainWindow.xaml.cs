@@ -56,9 +56,23 @@ public partial class MainWindow : Window
     /* Arranque y refresco                                              */
     /* ---------------------------------------------------------------- */
 
+    /// <summary>
+    /// Version del ejecutable, la misma que declara PanelSOS.csproj.
+    /// Se saca del propio ensamblado y no de una constante escrita a mano:
+    /// una constante se olvida de actualizar y entonces miente, que es peor
+    /// que no ponerla.
+    /// </summary>
+    private static string VersionDelPanel()
+    {
+        var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        return v is null ? "?" : $"{v.Major}.{v.Minor}.{v.Build}";
+    }
+
     private async Task ArrancarAsync()
     {
-        Escribir("SOS · Conectate · Pide Ayuda — panel de mando");
+        txtVersion.Text = $"v{VersionDelPanel()}";
+
+        Escribir($"SOS · Conectate · Pide Ayuda — panel de mando  v{VersionDelPanel()}");
         Escribir($"Proyecto: {Proyecto.Raiz}");
 
         if (!Proyecto.ProyectoValido)
@@ -103,7 +117,13 @@ public partial class MainWindow : Window
         var (codigo, salida) = await _nodo.EjecutarAsync(Path.Combine("tools", "estado.js"));
         if (codigo != 0 || string.IsNullOrWhiteSpace(salida)) return;
 
-        try { _estado = EstadoSistema.Desde(salida); }
+        try
+        {
+            _estado = EstadoSistema.Desde(salida);
+            // La carpeta de datos la manda el servidor, no el panel: asi los dos
+            // leen y escriben el MISMO configuracion.json.
+            Ajustes.UsarCarpeta(_estado.CarpetaDatos);
+        }
         catch { return; } // JSON incompleto: reintentamos en el siguiente tick
 
         PintarEstado();
@@ -157,17 +177,24 @@ public partial class MainWindow : Window
         btnAbrirPortal.IsEnabled = activo;
         btnAbrirCartel.IsEnabled = activo;
 
-        // No pisamos lo que el operador este escribiendo.
-        if (!cajaPuesto.IsFocused) cajaPuesto.Text = _estado.Puesto;
-        if (!cajaPin.IsFocused) cajaPin.Text = _estado.Pin;
+        // El reloj refresca cada 3 s, y estas cajas son EDITABLES: si se repinta
+        // lo guardado sin mirar, el operador escribe un nombre de red nuevo, mira
+        // para otro lado, y su texto desaparece solo. Parece que el campo esta
+        // bloqueado —"como si estuviese hardcodeado"— cuando en realidad se lo
+        // esta comiendo el refresco.
+        //
+        // Solo se repinta lo que NO ha tocado nadie: si el contenido difiere de
+        // lo ultimo que pintamos, es del operador y se respeta.
+        RefrescarEditable(cajaPuesto, _estado.Puesto);
+        RefrescarEditable(cajaPin, _estado.Pin);
 
         _pintandoModo = true;
         if (!listaModo.IsDropDownOpen && listaModo.SelectedIndex == -1)
         {
             listaModo.SelectedIndex = _estado.ModoPropio ? 1 : 0;
         }
-        if (!cajaNombreRed.IsFocused) cajaNombreRed.Text = _estado.NombreBase;
-        if (!cajaClaveRed.IsFocused) cajaClaveRed.Text = _estado.Clave;
+        RefrescarEditable(cajaNombreRed, _estado.NombreBase);
+        RefrescarEditable(cajaClaveRed, _estado.Clave);
         _pintandoModo = false;
 
         PintarCierre();
@@ -206,6 +233,27 @@ public partial class MainWindow : Window
     /* ---------------------------------------------------------------- */
     /* Leds de estado                                                    */
     /* ---------------------------------------------------------------- */
+
+    /// Ultimo valor que ESTE panel pinto en cada caja editable. Sirve para
+    /// distinguir "no lo ha tocado nadie" de "lo escribio el operador".
+    private readonly Dictionary<System.Windows.Controls.TextBox, string> _ultimoPintado = new();
+
+    /// <summary>
+    /// Repinta una caja editable solo si su contenido sigue siendo el que
+    /// pusimos nosotros. En cuanto el operador escribe algo distinto, la caja
+    /// es suya y el refresco no la toca hasta que guarde.
+    /// </summary>
+    private void RefrescarEditable(System.Windows.Controls.TextBox caja, string valor)
+    {
+        valor ??= "";
+        if (caja.IsFocused) return;
+
+        // La primera vez no hay nada pintado: se acepta el valor guardado.
+        if (_ultimoPintado.TryGetValue(caja, out var anterior) && caja.Text != anterior) return;
+
+        caja.Text = valor;
+        _ultimoPintado[caja] = valor;
+    }
 
     private enum Led { Apagado, Bien, Mal }
 
@@ -559,14 +607,59 @@ public partial class MainWindow : Window
         await CorrerAsync("Comprobando si la tarjeta puede ser punto de acceso",
             Path.Combine("tools", "punto-acceso.js"));
 
+    /// <summary>
+    /// Levanta la red WiFi con lo que hay EN PANTALLA.
+    ///
+    /// Antes exigia haber pulsado "Guardar configuracion" y, si no, soltaba un
+    /// aviso pidiendo poner un modo que el desplegable ya mostraba puesto. El
+    /// selector y este boton estan en la seccion "Modo de red"; el de guardar
+    /// esta mas abajo, en otra. Nada le decia al operador que tenia que bajar a
+    /// guardar para que funcionara el boton de arriba, asi que parecia roto.
+    ///
+    /// Ahora el boton guarda lo suyo y arranca. Si hace falta un paso previo
+    /// que nadie ve, el paso lo damos nosotros.
+    /// </summary>
     private async void LevantarAp_Click(object sender, RoutedEventArgs e)
     {
-        if (_estado.Modo != "propio")
+        if (listaModo.SelectedIndex != 1)
         {
-            MessageBox.Show("Primero pon el modo en \"Punto de acceso propio\" y guarda la configuracion.",
+            MessageBox.Show(
+                "Esto levanta el WiFi con la tarjeta de este equipo.\n\n" +
+                "Arriba, en \"Modo de red\", elige \"Punto de acceso propio\".",
                 "Panel SOS", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
+
+        var clave = cajaClaveRed.Text.Trim();
+        if (clave.Length < 8)
+        {
+            MessageBox.Show("La clave de la red WiFi debe tener 8 caracteres o mas.\n\n" +
+                            "Windows no permite que una red propia sea abierta.",
+                "Panel SOS", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Se persiste el modo y los datos de la red antes de arrancar: el script
+        // de Node los lee del archivo, no de esta ventana.
+        try
+        {
+            Ajustes.Guardar(new Dictionary<string, object?>
+            {
+                ["modo"] = "propio",
+                ["apNombre"] = cajaNombreRed.Text.Trim(),
+                ["apClave"] = clave,
+                ["apClaveEnNombre"] = claveDentroDelNombre.IsChecked == true,
+            });
+            _ultimoPintado.Clear();
+            Escribir($"Red guardada: \"{cajaNombreRed.Text.Trim()}\" con clave {clave}");
+        }
+        catch (Exception ex)
+        {
+            Escribir($"No se pudo guardar el modo de red: {ex.Message}", true);
+            return;
+        }
+
+        await RefrescarAsync();
         await CorrerAsync("Levantando la red WiFi", Path.Combine("tools", "punto-acceso.js"), "iniciar");
     }
 
@@ -612,6 +705,10 @@ public partial class MainWindow : Window
                 ["apClaveEnNombre"] = claveDentroDelNombre.IsChecked == true,
             });
 
+            // Guardado: lo escrito pasa a ser lo oficial, y el refresco vuelve a
+            // mandar sobre las cajas.
+            _ultimoPintado.Clear();
+
             Titular("Configuracion guardada");
             Escribir($"Puesto : {puesto}");
             Escribir($"PIN    : {pin}");
@@ -651,6 +748,13 @@ public partial class MainWindow : Window
             // El modo punto de acceso propio levanta su propio DHCP y sin esta
             // regla los celulares no consiguen direccion. Faltaba.
             ("SOS Portal DHCP", "UDP", 67),
+            // Los puertos altos tambien: "Iniciar en puertos altos" existe para
+            // probar sin Administrador, y sin estas reglas el celular se conecta
+            // a la red, recibe direccion, y el portal no carga — que es
+            // exactamente lo que parece un fallo del portal y no lo es.
+            ("SOS Portal HTTP alto", "TCP", 8080),
+            ("SOS Portal HTTPS alto", "TCP", 8443),
+            ("SOS Portal DNS alto", "UDP", 5354),
         };
 
         foreach (var (nombre, protocolo, puerto) in reglas)

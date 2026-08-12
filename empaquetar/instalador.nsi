@@ -10,7 +10,7 @@
 !include "MUI2.nsh"
 
 !define NOMBRE     "SOS Conectate Pide Ayuda"
-!define VERSION    "1.6.0"
+!define VERSION    "1.6.1"
 !define CARPETA    "salida\SOS.Conectate.PideAyuda"
 
 Name              "${NOMBRE}"
@@ -24,7 +24,7 @@ InstallDirRegKey  HKLM "Software\SOSConectate" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-VIProductVersion "1.6.0.0"
+VIProductVersion "1.6.1.0"
 VIAddVersionKey  "ProductName"     "${NOMBRE}"
 VIAddVersionKey  "FileDescription" "Portal cautivo de emergencia"
 VIAddVersionKey  "FileVersion"     "${VERSION}"
@@ -130,11 +130,21 @@ Section "Abrir los puertos en el firewall" Firewall
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTPS"'
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DNS"'
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DHCP"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTP alto"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTPS alto"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DNS alto"'
 
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal HTTP" dir=in action=allow protocol=TCP localport=80'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal HTTPS" dir=in action=allow protocol=TCP localport=443'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal DNS" dir=in action=allow protocol=UDP localport=53'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal DHCP" dir=in action=allow protocol=UDP localport=67'
+
+  ; Puertos altos: "iniciar en puertos altos" existe para probar sin
+  ; Administrador, y sin estas reglas el celular se conecta, recibe direccion y
+  ; el portal no carga. Parece un fallo del portal y es el firewall.
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal HTTP alto" dir=in action=allow protocol=TCP localport=8080'
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal HTTPS alto" dir=in action=allow protocol=TCP localport=8443'
+  nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal DNS alto" dir=in action=allow protocol=UDP localport=5354'
 SectionEnd
 
 ; ---------------------------------------------------------------------
@@ -163,6 +173,9 @@ Section "Uninstall"
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTPS"'
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DNS"'
   nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DHCP"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTP alto"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTPS alto"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DNS alto"'
 
   Delete "$SMPROGRAMS\${NOMBRE}\*.lnk"
   RMDir  "$SMPROGRAMS\${NOMBRE}"

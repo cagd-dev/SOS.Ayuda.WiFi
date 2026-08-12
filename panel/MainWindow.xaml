@@ -26,13 +26,24 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Grid.Column="0">
-          <TextBlock FontSize="17" FontWeight="Bold">
-            <Run Text="SOS"/>
-            <Run Text="·" Foreground="#F78166"/>
-            <Run Text="CONECTATE"/>
-            <Run Text="·" Foreground="#F78166"/>
-            <Run Text="PIDE AYUDA"/>
-          </TextBlock>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock FontSize="17" FontWeight="Bold">
+              <Run Text="SOS"/>
+              <Run Text="·" Foreground="#F78166"/>
+              <Run Text="CONECTATE"/>
+              <Run Text="·" Foreground="#F78166"/>
+              <Run Text="PIDE AYUDA"/>
+            </TextBlock>
+            <!-- La version, a la vista. Sin esto no hay forma de saber que se
+                 esta ejecutando: se puede tener una instalacion vieja abierta
+                 creyendo que es la ultima, y perseguir un fallo ya arreglado. -->
+            <Border Background="{StaticResource Superficie2}" CornerRadius="4"
+                    BorderBrush="{StaticResource Borde}" BorderThickness="1"
+                    Padding="6,1" Margin="10,0,0,0" VerticalAlignment="Center">
+              <TextBlock x:Name="txtVersion" Text="v?" FontSize="11" FontWeight="Bold"
+                         Foreground="{StaticResource TextoSuave}"/>
+            </Border>
+          </StackPanel>
           <TextBlock x:Name="txtPuestoCabecera" Foreground="{StaticResource TextoSuave}"
                      FontSize="12" Text="Puesto de Mando SOS"/>
         </StackPanel>

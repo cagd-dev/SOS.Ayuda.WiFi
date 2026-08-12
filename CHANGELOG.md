@@ -5,6 +5,119 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.6.1] — 2026-08-12
+
+El modo punto de acceso propio **no llegaba a funcionar**. Se probó de verdad,
+con un teléfono en la mano, y salieron **nueve fallos encadenados**. Ninguno era
+del hardware: el dongle que dábamos por inútil funcionaba desde el principio.
+
+### Corregido
+
+- **El panel guardaba la configuración en un archivo que nadie leía.** En la
+  1.2.0 se separaron programa y datos —los datos pasaron a `ProgramData`— y
+  `src/config.js` se actualizó, pero el panel se quedó con la ruta vieja:
+
+  ```
+  C:\Program Files\...\datos\configuracion.json     ← escribía el panel
+  C:\ProgramData\SOS.Ayuda.WiFi\configuracion.json  ← leía el servidor
+  ```
+
+  El panel decía «configuración guardada» con toda la razón, y el portal
+  arrancaba con los valores viejos. Cambiar el nombre de la red era imposible y
+  parecía que estuviera fijo en el código. Ahora la carpeta se la dice el
+  servidor, que es la fuente de verdad.
+
+- **El refresco se comía lo que estabas escribiendo.** El panel repinta el
+  estado cada 3 segundos, y esas cajas son editables: escribías un nombre de red
+  nuevo, mirabas para otro lado, y el temporizador te devolvía el valor
+  guardado. Sensación exacta de campo bloqueado. Ahora solo se repinta lo que no
+  ha tocado nadie.
+
+- **El botón «Levantar la red WiFi» pedía algo que ya estaba puesto.** El
+  desplegable mostraba «Punto de acceso propio», pero el modo solo se guardaba
+  al pulsar *Guardar configuración*, que está en **otra sección** más abajo.
+  Nada indicaba que hubiera que bajar a guardar para que funcionara el botón de
+  arriba, así que parecía roto. Ahora el botón guarda lo suyo y arranca.
+
+- **Pedía Administrador para un comando que no usa.** Antes de levantar la red
+  ejecutaba `netsh wlan set hostednetwork`, que exige elevación y **no aporta
+  nada** por Wi-Fi Direct, donde el nombre y la clave viajan directos al
+  anuncio. Se salta cuando no toca.
+
+- **La red no sobrevivía a quien la levantaba.** El anuncio de Wi-Fi Direct vive
+  mientras viva su proceso, y colgaba de una herramienta de línea de comandos
+  que termina: medido, el adaptador desaparecía en cuanto el comando volvía.
+  Ahora **el dueño de la red es el portal**, que es lo único que dura toda la
+  operación: la levanta al arrancar y la baja al apagarse. Una red WiFi de
+  emergencia no puede depender de que nadie cierre una ventana.
+
+- **El servidor y la tarjeta estaban en segmentos distintos.** Windows le asigna
+  `192.168.137.1` a la tarjeta de Wi-Fi Direct, mientras el servidor seguía en
+  `192.168.99.1`. El teléfono se conectaba, recibía dirección, veía la señal
+  llena — y el portal no cargaba nunca. Un fallo que parece «el portal está
+  roto» y no tiene nada que ver con el portal.
+
+  **Ahora el portal se muda al segmento de la tarjeta**, reemite el certificado
+  y reparte DHCP ahí.
+
+- **Y NO se le cambia la IP a la tarjeta**, aunque se pueda. Este fue el más
+  difícil, porque el primer arreglo consistió justamente en lo contrario.
+
+  Con Wi-Fi Direct, Windows levanta además su servicio de **Conexión Compartida
+  (ICS)**, que se queda anclado a `192.168.137.1` sirviendo DHCP. Nuestro
+  servidor convive con él sin problema — mientras la tarjeta siga en ese
+  segmento. Medido con un teléfono real:
+
+  | Tarjeta | Resultado |
+  |---|---|
+  | `192.168.137.1` (la que pone Windows) | el teléfono recibe dirección ✅ |
+  | movida a `192.168.99.1` | deja de recibir ❌ |
+
+  Lo venenoso es que **solo fallaba con permisos de Administrador**, que es
+  justamente como corre el panel: sin elevar, el cambio de IP no se podía hacer
+  y todo funcionaba. Un arreglo que solo rompe cuando tiene permiso para actuar
+  es de los que cuesta mucho encontrar.
+
+- **El firewall no abría los puertos altos.** «Iniciar en puertos altos» existe
+  para probar sin Administrador, pero sin reglas para 8080/8443/5354 el celular
+  se conecta, recibe dirección y el portal no carga. El modo de pruebas no
+  servía para probar.
+
+- **El botón «Salir a mi navegador» dejaba a la persona en una página en
+  blanco.** Navegaba a la sonda de conectividad del sistema para forzar la
+  comprobación; si el teléfono no cerraba la ventanita, quedaba mostrando la
+  respuesta cruda de la sonda —vacía— y sin camino de vuelta, porque al navegar
+  moría la página que tenía los pasos manuales. Ahora no navega: libera el
+  dispositivo, avisa de que la ventana se cerrará sola y deja los pasos a la
+  vista. (Regresión introducida en la 1.5.0.)
+
+### Añadido
+
+- **El número de versión, visible en la cabecera del panel.** Sin él no hay
+  forma de saber qué se está ejecutando: se puede tener abierta una instalación
+  vieja creyendo que es la última y perseguir un fallo ya arreglado. Pasó.
+  Se lee del propio ensamblado, no de una constante escrita a mano — una
+  constante se olvida de actualizar y entonces miente.
+
+- **Aviso si la tarjeta tiene más de una IPv4.** Dos direcciones en la misma
+  tarjeta rompen el enrutamiento sin decir nada: el teléfono se conecta, recibe
+  dirección, y las consultas de DNS no llegan a ningún sitio. Costó tres
+  intentos encontrarlo. Ahora el arranque lo dice a la cara, con el comando
+  exacto para limpiarla.
+
+### Limitación conocida
+
+En **modo punto de acceso propio**, la ventanita del portal **no siempre se abre
+sola**. Todo lo demás funciona —la red, el reparto de direcciones, el portal, el
+DNS responde correctamente— pero algunos teléfonos no llegan a consultarnos.
+Está bajo investigación.
+
+No es un bloqueo: **el cartel lleva la dirección impresa** y tecleándola se entra
+igual, que es justo para lo que existe. Y en **modo router** —el recomendado— la
+apertura automática funciona con normalidad.
+
+---
+
 ## [1.6.0] — 2026-08-12
 
 ### Añadido
