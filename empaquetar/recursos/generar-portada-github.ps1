@@ -8,6 +8,11 @@
     Aprovecha que la portada tiene la mitad izquierda vacia a proposito: ahi va
     el titulo, y la escena queda a la derecha.
 
+    OJO: portada-empaque.png es la PLANCHA DE FONDO y no se usa suelta en
+    ningun sitio. Sin el texto encima, ese hueco oscuro parece una imagen mal
+    recortada — el README la llevo asi un tiempo. Lo que se publica es el
+    resultado de este script (github-social.png y su version .jpg).
+
         .\generar-portada-github.ps1
 #>
 

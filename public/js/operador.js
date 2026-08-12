@@ -252,6 +252,27 @@ async function seleccionar(id) {
   $('#detalle').hidden = false;
   $('#consola').dataset.vista = 'chat';
 
+  pintarFicha(persona);
+
+  mensajesVistos = new Set();
+  $('#listaMensajes').innerHTML = '';
+  for (const mensaje of mensajes) pintarMensaje(mensaje);
+
+  await api(`/admin/api/personas/${id}/leido`, { method: 'POST' });
+  const enLista = personas.find((p) => p.id === id);
+  if (enLista) enLista.sin_leer = 0;
+  pintarLista();
+}
+
+/**
+ * Pinta la ficha de la persona.
+ *
+ * Vive aparte de seleccionar() para poder repintarla cuando llegan datos
+ * nuevos por WebSocket. Antes solo se armaba al hacer clic, asi que una
+ * ubicacion GPS que llegaba con la ficha abierta se quedaba invisible: el
+ * operador seguia leyendo la coordenada anterior sin motivo para sospechar.
+ */
+function pintarFicha(persona) {
   $('#fichaNombre').textContent = persona.nombre;
   $('#fichaResumen').textContent =
     `${persona.codigo} · ${persona.estadoEtiqueta}` +
@@ -288,18 +309,13 @@ async function seleccionar(id) {
     ficha.append(dt, dd);
   }
 
-  $('#campoNotas').value = persona.notas || '';
+  // Las notas NO se pisan si el operador las esta escribiendo: este repintado
+  // puede dispararse por WebSocket en cualquier momento.
+  const campoNotas = $('#campoNotas');
+  if (document.activeElement !== campoNotas) campoNotas.value = persona.notas || '';
+
   $('#btnAtendido').textContent = persona.atendido ? 'Reabrir caso' : 'Marcar atendido';
   pintarDudoso(persona);
-
-  mensajesVistos = new Set();
-  $('#listaMensajes').innerHTML = '';
-  for (const mensaje of mensajes) pintarMensaje(mensaje);
-
-  await api(`/admin/api/personas/${id}/leido`, { method: 'POST' });
-  const enLista = personas.find((p) => p.id === id);
-  if (enLista) enLista.sin_leer = 0;
-  pintarLista();
 }
 
 function pintarMensaje(mensaje) {
@@ -487,10 +503,20 @@ function conectarWebSocket() {
     if (datos.tipo === 'mensaje') {
       if (seleccionada && datos.mensaje.persona_id === seleccionada.id) pintarMensaje(datos.mensaje);
       cargarPersonas();
-      if (datos.mensaje.direccion === 'persona') sonar();
+      // Suena lo que escribe la persona y lo que el servidor marca como alerta
+      // (hoy, la llegada de una ubicacion GPS). El resto de los mensajes de
+      // sistema nacen durante el registro, que ya avisa con 'persona-nueva'.
+      if (datos.mensaje.direccion === 'persona' || datos.alerta) sonar();
     }
     if (datos.tipo === 'persona-nueva' || datos.tipo === 'persona-actualizada') {
       cargarPersonas();
+      // Si es la persona que el operador tiene abierta, hay que repintarle la
+      // ficha: si no, se queda leyendo datos viejos con la pantalla delante.
+      if (datos.tipo === 'persona-actualizada' && seleccionada &&
+          datos.persona?.id === seleccionada.id) {
+        seleccionada = datos.persona;
+        pintarFicha(datos.persona);
+      }
       if (datos.tipo === 'persona-nueva') sonar();
     }
 

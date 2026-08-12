@@ -10,7 +10,7 @@
 !include "MUI2.nsh"
 
 !define NOMBRE     "SOS Conectate Pide Ayuda"
-!define VERSION    "1.3.1"
+!define VERSION    "1.4.0"
 !define CARPETA    "salida\SOS.Conectate.PideAyuda"
 
 Name              "${NOMBRE}"
@@ -24,7 +24,7 @@ InstallDirRegKey  HKLM "Software\SOSConectate" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-VIProductVersion "1.3.1.0"
+VIProductVersion "1.4.0.0"
 VIAddVersionKey  "ProductName"     "${NOMBRE}"
 VIAddVersionKey  "FileDescription" "Portal cautivo de emergencia"
 VIAddVersionKey  "FileVersion"     "${VERSION}"
@@ -37,6 +37,22 @@ VIAddVersionKey  "LegalCopyright"  "Copyright (C) 2026 - Licencia GPL-3.0"
 ; Franja lateral recortada de la portada del proyecto.
 !define MUI_WELCOMEFINISHPAGE_BITMAP    "recursos\instalador-lateral.bmp"
 !define MUI_UNWELCOMEFINISHPAGE_BITMAP  "recursos\instalador-lateral.bmp"
+
+; Titulos propios de las paginas de bienvenida y de fin.
+;
+; Los de fabrica son "Bienvenido al Asistente de Instalacion de $(^NameDA)" y
+; "Completando el Asistente de Instalacion de $(^NameDA)". Con un nombre de
+; cuatro palabras como el nuestro no caben: el recuadro del titulo mide dos
+; lineas y la tercera sale cortada a media palabra ("...Pide Ayud").
+;
+; Se arregla por los dos lados —titulo mas corto Y una linea mas de espacio—
+; para que siga cabiendo si alguien alarga el nombre mas adelante.
+!define MUI_WELCOMEFINISHPAGE_TITLE_3LINES
+!define MUI_WELCOMEPAGE_TITLE "Bienvenido a SOS Conectate Pide Ayuda"
+!define MUI_WELCOMEPAGE_TEXT "Este asistente instalara en este equipo el portal cautivo de emergencia: censo de personas y chat con el puesto de mando, funcionando sin internet.$\r$\n$\r$\nNo hace falta instalar nada mas. Node.js y todo lo necesario viajan dentro.$\r$\n$\r$\nPresione Siguiente para continuar."
+
+!define MUI_FINISHPAGE_TITLE "Listo para operar"
+!define MUI_FINISHPAGE_TEXT "El sistema quedo instalado.$\r$\n$\r$\nAbre el panel de mando, pulsa Iniciar el portal y pega los carteles con el nombre de la red. La guia de despliegue explica como configurar el router para que el portal se abra solo en los celulares.$\r$\n$\r$\nEl censo se guarda en C:\ProgramData\SOS.Ayuda.WiFi, aparte del programa."
 !define MUI_FINISHPAGE_RUN "$INSTDIR\PanelSOS.exe"
 !define MUI_FINISHPAGE_RUN_TEXT "Abrir el panel de mando"
 !define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\DESPLIEGUE.md"

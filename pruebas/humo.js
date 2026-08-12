@@ -648,6 +648,78 @@ async function main() {
     });
   });
 
+  /* --- La consola de operador sobre el canal cifrado ---
+   *
+   * Por ahi viajan el PIN, la sesion y los datos de las victimas, y la red de
+   * emergencia es abierta. La pagina siempre se sirvio por HTTPS —es el mismo
+   * Express— pero el WebSocket solo estaba enganchado al servidor HTTP, asi
+   * que el chat en vivo se quedaba mudo y caia a polling sin decir por que. */
+  await new Promise((resolver) => {
+    const socket = new WebSocket(
+      `wss://127.0.0.1:${PUERTO_SEGURO}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`,
+      { rejectUnauthorized: false });  // autofirmado a proposito
+    const limite = setTimeout(() => {
+      revisar('el WebSocket del operador funciona sobre HTTPS', false, 'se agoto el tiempo');
+      try { socket.close(); } catch { /* ya cerrado */ }
+      resolver();
+    }, 5000);
+    socket.on('message', (crudo) => {
+      const datos = JSON.parse(crudo.toString());
+      if (datos.tipo === 'listo') {
+        revisar('el WebSocket del operador funciona sobre HTTPS', datos.rol === 'operador');
+        clearTimeout(limite);
+        socket.close();
+        resolver();
+      }
+    });
+    socket.on('error', (err) => {
+      revisar('el WebSocket del operador funciona sobre HTTPS', false, err.message);
+      clearTimeout(limite);
+      resolver();
+    });
+  });
+
+  /* --- La ubicacion llega al operador EN EL MOMENTO ---
+   *
+   * El mensaje de "Ubicacion GPS recibida" se creaba en la base pero no se
+   * emitia: el operador solo se enteraba si volvia a pulsar sobre esa persona,
+   * y mientras tanto seguia leyendo la coordenada vieja. Una ubicacion que
+   * llega tarde a quien manda la brigada no sirve de nada. */
+  await new Promise((resolver) => {
+    const socket = new WebSocket(
+      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`);
+    let avisoGps = null;
+
+    const limite = setTimeout(() => {
+      revisar('la ubicacion nueva le llega al operador sin recargar', !!avisoGps,
+        'no llego ningun mensaje por el socket');
+      try { socket.close(); } catch { /* ya cerrado */ }
+      resolver();
+    }, 6000);
+
+    socket.on('message', async (crudo) => {
+      const datos = JSON.parse(crudo.toString());
+
+      if (datos.tipo === 'listo') {
+        await enviarGps({ token, lat: 4.55, lon: -74.05, precision: 9 });
+        return;
+      }
+
+      if (datos.tipo === 'mensaje' && /Ubicacion GPS recibida/.test(datos.mensaje?.texto || '')) {
+        avisoGps = datos;
+        revisar('la ubicacion nueva le llega al operador sin recargar', true);
+        revisar('y viene marcada para que la consola avise', datos.alerta === true);
+        revisar('y trae la persona con la coordenada ya actualizada',
+          /4\.550000/.test(datos.persona?.ubicacion || ''), datos.persona?.ubicacion);
+        clearTimeout(limite);
+        socket.close();
+        resolver();
+      }
+    });
+
+    socket.on('error', () => { clearTimeout(limite); resolver(); });
+  });
+
   await new Promise((resolver) => {
     const socket = new WebSocket(URL_BASE.replace('http', 'ws') + '/ws?t=token-falso');
     let rechazado = false;

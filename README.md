@@ -1,10 +1,10 @@
 # SOS · Conéctate · Pide Ayuda
 
-![Puesto de mando de emergencia](empaquetar/recursos/portada-empaque.png)
+![SOS · Conéctate · Pide Ayuda — portal cautivo de emergencia para localizar personas tras un desastre](empaquetar/recursos/github-social.jpg)
 
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.3.1-blue.svg)](CHANGELOG.md)
-[![Pruebas](https://img.shields.io/badge/pruebas-140%20OK-brightgreen.svg)](pruebas/humo.js)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.4.0-blue.svg)](CHANGELOG.md)
+[![Pruebas](https://img.shields.io/badge/pruebas-144%20OK-brightgreen.svg)](pruebas/humo.js)
 [![Descargar](https://img.shields.io/badge/descargar-Windows-orange.svg)](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases)
 
 **Portal cautivo de emergencia para localizar personas después de un desastre
@@ -61,7 +61,7 @@ Celular ──WiFi──> Router comercial ──LAN──> Servidor (este proye
                        ├─ DNS   :53   responde TODO con la IP del servidor
                        ├─ HTTP  :80   intercepta las sondas de Android/iOS/Windows
                        │               y dispara el portal cautivo
-                       ├─ HTTPS :443  canal seguro, solo para desbloquear el GPS
+                       ├─ HTTPS :443  canal cifrado: GPS y consola de operador
                        └─ WS          chat en vivo (con respaldo por polling)
 ```
 
@@ -110,8 +110,8 @@ Deja en `empaquetar/salida/`:
 
 | Entregable | Tamaño | Para qué |
 |---|---|---|
-| `SOS.Conectate.PideAyuda-Setup.exe` | 79 MB | Instalador. No requiere Node, .NET ni nada más |
-| `SOS.Conectate.PideAyuda.zip` | 90 MB | Versión portátil, para una USB |
+| `SOS.Conectate.PideAyuda-Setup.exe` | 80 MB | Instalador. No requiere Node, .NET ni nada más |
+| `SOS.Conectate.PideAyuda.zip` | 91 MB | Versión portátil, para una USB |
 
 **Node viaja dentro** (`runtime/node.exe`), y el panel lo prefiere sobre el que
 haya instalado en el equipo. **El JavaScript viaja sin empaquetar ni ofuscar**, a
@@ -149,7 +149,7 @@ Equivalentes por línea de comandos:
 | `npm run puertos-altos` | Igual, pero en 8080/8443/5354 (no necesita Administrador) |
 | `npm run dev` | Con recarga automática al editar |
 | `npm run diagnostico` | Chequeo previo al despliegue |
-| `npm run prueba` | 113 pruebas end-to-end contra el servidor corriendo |
+| `npm run prueba` | 117 pruebas end-to-end contra el servidor corriendo |
 | `npm run prueba-cierre` | 27 pruebas del cierre de operación (no necesita el servidor) |
 | `npm run limpiar` | Respalda y vacía la base (con el servidor detenido) |
 
@@ -209,7 +209,7 @@ public/
   cartel.html     Cartel imprimible con el nombre de la red
   js/gps-enlace.js  Explicación previa al aviso de certificado (portal y chat)
 pruebas/
-  humo.js        113 pruebas end-to-end
+  humo.js        117 pruebas end-to-end
   cierre.js      27 pruebas del cierre, contra una carpeta temporal
   diagnostico.js Chequeo previo al despliegue
 tools/
@@ -410,8 +410,21 @@ manifestaba como tres pruebas en timeout, que apuntaban al sitio equivocado.
 **Dos protocolos, cada uno para lo suyo.** El portal vive en HTTP porque la
 detección de portal cautivo lo exige: las sondas son HTTP y hay que contestarlas.
 Pero los navegadores solo entregan el GPS en contexto seguro. La solución es un
-canal HTTPS paralelo dedicado a una sola cosa — recibir coordenadas — con
-certificado autofirmado emitido para la IP del puesto.
+canal HTTPS paralelo con certificado autofirmado emitido para la IP del puesto.
+
+Por ese canal cifrado va también **la consola de operador**: ahí viajan el PIN,
+la sesión y los datos de las víctimas, y esta red es abierta. La diferencia está
+en a quién se le puede pedir que acepte un aviso de certificado: **al operador
+sí, a alguien atrapado no**. Por eso el portal de la gente se queda en HTTP.
+
+Dentro del panel de mando no se ve ningún aviso, porque WebView2 acepta el
+certificado explícitamente. Y el HTTP sigue disponible como respaldo: si el
+certificado falla, quedarse sin consola sería mucho peor.
+
+> **Alcance honesto:** esto protege contra la captura pasiva de tráfico, que es
+> el ataque realista en un WiFi abierto. No protege contra un intermediario
+> activo, porque un certificado autofirmado que se acepta a mano puede ser
+> sustituido por otro. Es una mejora real, no una garantía.
 
 Detalles que hacen que funcione:
 

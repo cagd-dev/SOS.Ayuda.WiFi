@@ -52,6 +52,8 @@ function anunciarEncendido(puertos) {
       inicio: new Date().toISOString(),
       ip: config.ip,
       urlBase: config.urlBase,
+      // Para que el panel pueda cargar la consola por el canal cifrado.
+      urlSegura: puertos.puertoHttps ? config.urlSegura : null,
       ...puertos,
     }, null, 2));
   } catch { /* si no se puede escribir, la consola caera al chequeo por puerto */ }
@@ -89,7 +91,12 @@ async function arrancar() {
     servidor.listen(config.puertoHttp, '0.0.0.0', resolver);
   });
 
-  // Canal seguro. Solo sirve para una cosa: que el navegador entregue el GPS.
+  // Canal seguro. Nacio para una sola cosa —que el navegador entregue el GPS—
+  // y ahora sirve tambien para la consola de operador: ahi viajan el PIN, la
+  // sesion y los datos de las victimas por un WiFi abierto, donde capturar
+  // trafico es trivial. Al operador SI se le puede pedir que acepte una vez el
+  // aviso del certificado; a alguien atrapado, no. Por eso el portal de la
+  // gente sigue en HTTP puro.
   let servidorSeguro = null;
   let avisoHttps = null;
   if (config.httpsActivo) {
@@ -101,6 +108,15 @@ async function arrancar() {
       }
 
       servidorSeguro = https.createServer({ cert: certificado.cert, key: certificado.key }, app);
+
+      // El WebSocket tambien sobre el canal seguro. Sin esto la consola por
+      // HTTPS cargaba —es el mismo Express— pero pedia wss:// y no habia nadie
+      // escuchando: el chat en vivo se quedaba mudo y caia a polling.
+      //
+      // Los mapas de conexiones son de modulo, asi que una persona conectada
+      // por HTTP y un operador por HTTPS se siguen viendo entre si.
+      iniciarWs(servidorSeguro, { sesionValida });
+
       await new Promise((resolver, rechazar) => {
         servidorSeguro.once('error', (err) => {
           rechazar(new Error(
@@ -167,7 +183,13 @@ async function arrancar() {
   console.log('');
   console.log(`  IP del puesto de mando : ${config.ip}`);
   console.log(`  Portal para la gente   : ${config.urlBase}`);
-  console.log(`  Consola de operador    : ${config.urlBase}/operador.html   (PIN ${config.pinOperador})`);
+  // Se ofrece primero la consola por HTTPS: por ahi van el PIN y los datos de
+  // las victimas, y esta red es abierta. La de HTTP queda como respaldo, por si
+  // el aviso del certificado da problemas en algun equipo.
+  console.log(`  Consola de operador    : ${servidorSeguro ? `${config.urlSegura}/operador.html` : `${config.urlBase}/operador.html`}   (PIN ${config.pinOperador})`);
+  if (servidorSeguro) {
+    console.log(`     (acepta el aviso del certificado una vez; sin cifrar: ${config.urlBase}/operador.html)`);
+  }
   console.log(`  Canal seguro (GPS)     : ${servidorSeguro ? config.urlSegura : 'APAGADO'}`);
   console.log(`  Servidor DNS           : ${dns ? `activo en el puerto ${config.puertoDns}` : 'APAGADO'}`);
   console.log(`  Modo de red            : ${config.modo === 'propio'

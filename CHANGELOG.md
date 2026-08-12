@@ -5,6 +5,62 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.4.0] — 2026-08-12
+
+### Seguridad
+
+- **La consola de operador va ahora por el canal cifrado.** Por ahí viajan el
+  PIN, la sesión y los datos de las víctimas, y la red de emergencia es
+  abierta: capturar tráfico en ella es trivial. Al operador sí se le puede
+  pedir que acepte una vez el aviso del certificado; a alguien atrapado, no —
+  por eso el portal de la gente sigue en HTTP puro.
+
+  Dentro del panel de mando no se ve ningún aviso, porque WebView2 acepta el
+  certificado autofirmado explícitamente. Desde otro equipo hay que aceptarlo
+  una vez.
+
+  El HTTP sigue funcionando y se sigue anunciando como respaldo: si el
+  certificado falla, quedarse sin consola sería mucho peor.
+
+  > **Alcance honesto:** esto protege contra la captura pasiva de tráfico, que
+  > es el ataque realista. No protege contra alguien que monte un intermediario
+  > activo dentro de la red, porque un certificado autofirmado que se acepta a
+  > mano puede ser sustituido por otro. Es una mejora real, no una garantía.
+
+### Corregido
+
+- **La ubicación nueva no le llegaba al operador hasta que volvía a pulsar
+  sobre la persona.** El mensaje de «Ubicación GPS recibida» se creaba en la
+  base pero no se emitía por WebSocket, así que ni aparecía en el hilo abierto
+  ni sonaba el aviso; y la ficha, que solo se arma al hacer clic, seguía
+  mostrando la coordenada anterior. Una ubicación que llega tarde a quien manda
+  la brigada no sirve de nada.
+
+  Ahora el mensaje se emite a la persona y al operador, marcado para que la
+  consola pite, y la ficha se repinta sola cuando llegan datos nuevos —sin
+  pisar las notas si el operador las está escribiendo.
+
+  Además, el WebSocket del operador **no funcionaba sobre HTTPS**: la página se
+  servía bien, pero pedía `wss://` y no había nadie escuchando en el canal
+  seguro, así que el chat en vivo caía a polling sin decir por qué.
+
+- **El título del asistente de instalación salía cortado.** Los textos de
+  fábrica de NSIS son «Bienvenido al Asistente de Instalación de *nombre del
+  programa*» y, con un nombre de cuatro palabras, no caben: el recuadro mide
+  dos líneas y la tercera se cortaba a media palabra («…Pide Ayud»). Ahora las
+  páginas de bienvenida y de fin llevan título propio, más corto, y una línea
+  más de espacio — arreglado por los dos lados para que siga cabiendo si el
+  nombre crece.
+- De paso, esas dos páginas dicen algo útil en vez del texto genérico: qué es
+  el programa, que no hace falta instalar nada más, y dónde queda el censo.
+- **El README abría con la imagen equivocada.** Usaba
+  `portada-empaque.png`, que es la *plancha de fondo*: la ilustración con un
+  hueco oscuro a la izquierda, pensado para que encaje encima el logo y el
+  título. Suelta parecía una imagen mal recortada. Ahora abre con la
+  composición terminada, que además pesa 140 KB en vez de 2,3 MB.
+
+---
+
 ## [1.3.1] — 2026-08-12
 
 Los dos puntos que quedaron pendientes de la revisión de seguridad externa.

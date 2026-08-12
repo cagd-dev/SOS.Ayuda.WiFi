@@ -224,10 +224,23 @@ public partial class MainWindow : Window
         PintarVista();
     }
 
+    /// <summary>
+    /// La consola de operador se carga por el canal CIFRADO cuando existe.
+    /// Ahi viajan el PIN, la sesion y los datos de las victimas, y la red de
+    /// emergencia es abierta: capturar trafico en ella es trivial.
+    ///
+    /// Dentro del panel esto no le cuesta nada al operador —WebView2 acepta el
+    /// certificado autofirmado sin preguntar— y si el HTTPS no arranco se cae
+    /// a HTTP en vez de dejarlo sin consola.
+    ///
+    /// El portal de la gente se mira SIEMPRE por HTTP: es lo que ven ellos.
+    /// </summary>
     private string UrlDeLaVista() => _vista switch
     {
         Vista.Portal => _estado.UrlBase,
-        _ => $"{_estado.UrlBase}/operador.html",
+        _ => string.IsNullOrWhiteSpace(_estado.UrlSegura)
+            ? $"{_estado.UrlBase}/operador.html"
+            : $"{_estado.UrlSegura}/operador.html",
     };
 
     private void PintarVista()
@@ -863,7 +876,18 @@ public partial class MainWindow : Window
     /* Atajos al navegador                                               */
     /* ---------------------------------------------------------------- */
 
-    private void AbrirOperador_Click(object sender, RoutedEventArgs e) => Abrir($"{_estado.UrlBase}/operador.html");
+    private void AbrirOperador_Click(object sender, RoutedEventArgs e)
+    {
+        // Fuera del panel el navegador SI muestra el aviso del certificado: hay
+        // que avisarlo, o el operador lo lee como que algo esta roto y se va.
+        if (!string.IsNullOrWhiteSpace(_estado.UrlSegura))
+        {
+            Escribir("Abriendo la consola por el canal cifrado. El navegador va a avisar del");
+            Escribir("certificado: es normal aqui, aceptalo una vez. Sin cifrar seria");
+            Escribir($"{_estado.UrlBase}/operador.html");
+        }
+        Abrir(UrlDeLaVista());
+    }
     private void AbrirPortal_Click(object sender, RoutedEventArgs e) => Abrir(_estado.UrlBase);
     private void AbrirCartel_Click(object sender, RoutedEventArgs e) => Abrir($"{_estado.UrlBase}/cartel.html");
 

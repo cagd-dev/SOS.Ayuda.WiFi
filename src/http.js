@@ -395,14 +395,26 @@ function crearApp() {
       ubicacion: descripcion ? `${descripcion}\n${linea}` : linea,
     });
 
-    mensajes.crear({
+    const aviso = mensajes.crear({
       personaId: persona.id,
       direccion: 'sistema',
       texto: `Ubicacion GPS recibida: ${linea.replace('GPS: ', '')}`,
     });
 
     eventos.registrar('ubicacion-gps', { id: persona.id, codigo: persona.codigo, lat, lon, precision });
+
+    // El mensaje se EMITE, no solo se guarda. Antes se creaba en la base y se
+    // descartaba el resultado: el operador solo se enteraba de que habia
+    // llegado una ubicacion nueva si volvia a pulsar sobre esa persona, y
+    // mientras tanto seguia viendo la coordenada vieja. Una ubicacion que
+    // llega tarde a quien manda la brigada no sirve de nada.
+    //
+    // alerta:true hace que la consola pite. Es el unico mensaje de sistema que
+    // debe sonar: los otros se crean durante el registro, que ya avisa por su
+    // cuenta con 'persona-nueva'.
+    ws.notificarOperadores('mensaje', { mensaje: aviso, persona: actualizada, alerta: true });
     ws.notificarOperadores('persona-actualizada', { persona: actualizada });
+    ws.notificarPersona(persona.id, 'mensaje', { mensaje: aviso });
     ws.notificarPersona(persona.id, 'ubicacion', { ubicacion: actualizada.ubicacion });
 
     res.json({ ok: true, ubicacion: linea });

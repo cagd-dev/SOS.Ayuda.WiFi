@@ -118,6 +118,12 @@ public sealed class EstadoSistema
     public int Heridos { get; init; }
     public bool PortalActivo { get; init; }
     public string UrlBase { get; init; } = "";
+
+    /// Canal cifrado, vacio si el HTTPS no llego a arrancar. La consola de
+    /// operador se carga por aqui: dentro del panel el aviso del certificado ni
+    /// se ve, porque WebView2 lo acepta explicitamente.
+    public string UrlSegura { get; init; } = "";
+
     public int PuertoDns { get; init; }
     public List<Adaptador> Adaptadores { get; init; } = new();
 
@@ -202,6 +208,7 @@ public sealed class EstadoSistema
             PortalActivo = portal.ValueKind == JsonValueKind.Object,
             UrlBase = portal.ValueKind == JsonValueKind.Object
                 ? portal.GetProperty("urlBase").GetString() ?? "" : "",
+            UrlSegura = portal.ValueKind == JsonValueKind.Object ? Texto(portal, "urlSegura") : "",
             PuertoDns = portal.ValueKind == JsonValueKind.Object ? Entero(portal, "puertoDns") : 0,
             Adaptadores = adaptadores,
 
