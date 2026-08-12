@@ -10,7 +10,7 @@
 !include "MUI2.nsh"
 
 !define NOMBRE     "SOS Conectate Pide Ayuda"
-!define VERSION    "1.3.0"
+!define VERSION    "1.3.1"
 !define CARPETA    "salida\SOS.Conectate.PideAyuda"
 
 Name              "${NOMBRE}"
@@ -24,7 +24,7 @@ InstallDirRegKey  HKLM "Software\SOSConectate" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-VIProductVersion "1.3.0.0"
+VIProductVersion "1.3.1.0"
 VIAddVersionKey  "ProductName"     "${NOMBRE}"
 VIAddVersionKey  "FileDescription" "Portal cautivo de emergencia"
 VIAddVersionKey  "FileVersion"     "${VERSION}"
@@ -100,8 +100,21 @@ SectionEnd
 
 ; Las reglas de firewall tambien las pone el panel al arrancar; hacerlo aqui
 ; ahorra que el operador tenga que acordarse en terreno.
+;
+; Se BORRA antes de anadir. "netsh advfirewall firewall add rule" no reemplaza:
+; apila. Cada reinstalacion dejaba un juego nuevo de reglas con el mismo nombre,
+; y tras varias versiones el firewall acumulaba duplicados que nadie iba a
+; limpiar y que hacian imposible auditar que estaba abierto de verdad. Borrar
+; una regla que no existe devuelve error y no rompe nada, por eso no se
+; comprueba el codigo de salida.
 Section "Abrir los puertos en el firewall" Firewall
   DetailPrint "Abriendo los puertos del portal..."
+
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTP"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal HTTPS"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DNS"'
+  nsExec::ExecToLog 'netsh advfirewall firewall delete rule name="SOS Portal DHCP"'
+
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal HTTP" dir=in action=allow protocol=TCP localport=80'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal HTTPS" dir=in action=allow protocol=TCP localport=443'
   nsExec::ExecToLog 'netsh advfirewall firewall add rule name="SOS Portal DNS" dir=in action=allow protocol=UDP localport=53'

@@ -62,6 +62,13 @@ function conectarWebSocket() {
     try { datos = JSON.parse(evento.data); } catch { return; }
     if (datos.tipo === 'mensaje') pintarMensaje(datos.mensaje);
     if (datos.tipo === 'listo' && datos.persona) aplicarPersona(datos.persona);
+
+    // El servidor descarto el mensaje por ir demasiado rapido. Se avisa como
+    // mensaje de sistema, dentro de la conversacion, para que la persona sepa
+    // que ESE mensaje no llego — callarlo seria peor que el limite.
+    if (datos.tipo === 'lento') {
+      pintarAvisoSistema(datos.mensaje || 'Vas muy rapido. Espera un momento.');
+    }
     // Las coordenadas llegan desde la OTRA ventana (la segura). Reflejamos el
     // cambio aqui para que la persona vea que si llegaron.
     if (datos.tipo === 'ubicacion') {
@@ -156,6 +163,20 @@ function pintarMensaje(mensaje) {
   const pegadoAbajo = lista.scrollHeight - lista.scrollTop - lista.clientHeight < 120;
   lista.appendChild(burbuja);
   if (pegadoAbajo) lista.scrollTop = lista.scrollHeight;
+}
+
+/**
+ * Aviso del sistema en el hilo, sin pasar por la base. Se usa para lo que la
+ * persona necesita saber en el momento y no forma parte de la conversacion
+ * con el puesto de mando.
+ */
+function pintarAvisoSistema(texto) {
+  const lista = $('#listaMensajes');
+  const burbuja = document.createElement('div');
+  burbuja.className = 'burbuja sistema';
+  burbuja.textContent = texto;
+  lista.appendChild(burbuja);
+  lista.scrollTop = lista.scrollHeight;
 }
 
 function enviarMensaje(texto) {

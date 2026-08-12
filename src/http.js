@@ -45,36 +45,11 @@ function normalizar(texto) {
 /* ------------------------------------------------------------------ *
  * Cuotas por dispositivo
  *
- * Objetivo: que un solo equipo no pueda saturar el servidor ni probar PINes a
- * ciegas. NO es un bloqueo global: dejar fuera a todo el mundo (incluido el
- * operador) seria mucho peor que el abuso que evita. Los limites son altos a
- * proposito, porque en una emergencia la gente se registra a rafagas.
+ * El almacen vive en src/cuotas.js porque el WebSocket usa el MISMO: el chat
+ * tiene dos carriles y con contadores separados bastaria alternar entre ellos
+ * para tener el doble de presupuesto.
  * ------------------------------------------------------------------ */
-const contadores = new Map();
-
-function limitar({ clave, maximo, ventana }) {
-  const ahoraMs = Date.now();
-  const registro = contadores.get(clave);
-
-  if (!registro || ahoraMs > registro.hasta) {
-    contadores.set(clave, { cuenta: 1, hasta: ahoraMs + ventana });
-    return { permitido: true, restante: maximo - 1 };
-  }
-
-  registro.cuenta += 1;
-  if (registro.cuenta > maximo) {
-    return { permitido: false, esperar: Math.ceil((registro.hasta - ahoraMs) / 1000) };
-  }
-  return { permitido: true, restante: maximo - registro.cuenta };
-}
-
-/** Limpieza periodica: sin esto el mapa crece con cada IP que pasa. */
-setInterval(() => {
-  const ahoraMs = Date.now();
-  for (const [clave, registro] of contadores) {
-    if (ahoraMs > registro.hasta) contadores.delete(clave);
-  }
-}, 60_000).unref?.();
+const { limitar } = require('./cuotas');
 
 function cuota(nombre, maximo, ventana) {
   return (req, res, siguiente) => {

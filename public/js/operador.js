@@ -493,6 +493,13 @@ function conectarWebSocket() {
       cargarPersonas();
       if (datos.tipo === 'persona-nueva') sonar();
     }
+
+    // Alguien esta mandando mensajes muy por encima de lo humano. Se avisa,
+    // no se bloquea: puede ser abuso, pero tambien un teclado atascado o una
+    // aplicacion reintentando. La decision es del operador.
+    if (datos.tipo === 'rafaga') {
+      avisarRafaga(datos);
+    }
   });
 
   // Sin reconexion agresiva: recargamos cada 20 s de todos modos.
@@ -516,6 +523,27 @@ function sonar() {
     oscilador.start();
     oscilador.stop(contexto.currentTime + 0.3);
   } catch { /* el navegador bloqueo el audio: no es critico */ }
+}
+
+/**
+ * Aviso de ráfaga. Es una banda arriba, no un alert(): un modal en mitad de una
+ * emergencia le tapa la pantalla al operador y le roba el foco justo cuando
+ * puede estar escribiéndole a alguien atrapado.
+ */
+function avisarRafaga({ nombre, codigo }) {
+  let banda = document.getElementById('avisoRafaga');
+  if (!banda) {
+    banda = document.createElement('div');
+    banda.id = 'avisoRafaga';
+    banda.className = 'aviso-rafaga';
+    document.body.appendChild(banda);
+    banda.addEventListener('click', () => banda.remove());
+  }
+  banda.textContent =
+    `⚠ ${nombre || 'Alguien'} (${codigo || '—'}) esta enviando mensajes muy rapido. ` +
+    'Se le estan descartando los sobrantes. Toca para cerrar este aviso.';
+  clearTimeout(banda.temporizador);
+  banda.temporizador = setTimeout(() => banda.remove(), 20000);
 }
 
 function escapar(texto) {

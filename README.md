@@ -3,8 +3,8 @@
 ![Puesto de mando de emergencia](empaquetar/recursos/portada-empaque.png)
 
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.3.0-blue.svg)](CHANGELOG.md)
-[![Pruebas](https://img.shields.io/badge/pruebas-138%20OK-brightgreen.svg)](pruebas/humo.js)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.3.1-blue.svg)](CHANGELOG.md)
+[![Pruebas](https://img.shields.io/badge/pruebas-140%20OK-brightgreen.svg)](pruebas/humo.js)
 [![Descargar](https://img.shields.io/badge/descargar-Windows-orange.svg)](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases)
 
 **Portal cautivo de emergencia para localizar personas después de un desastre
@@ -149,7 +149,7 @@ Equivalentes por línea de comandos:
 | `npm run puertos-altos` | Igual, pero en 8080/8443/5354 (no necesita Administrador) |
 | `npm run dev` | Con recarga automática al editar |
 | `npm run diagnostico` | Chequeo previo al despliegue |
-| `npm run prueba` | 111 pruebas end-to-end contra el servidor corriendo |
+| `npm run prueba` | 113 pruebas end-to-end contra el servidor corriendo |
 | `npm run prueba-cierre` | 27 pruebas del cierre de operación (no necesita el servidor) |
 | `npm run limpiar` | Respalda y vacía la base (con el servidor detenido) |
 
@@ -209,7 +209,7 @@ public/
   cartel.html     Cartel imprimible con el nombre de la red
   js/gps-enlace.js  Explicación previa al aviso de certificado (portal y chat)
 pruebas/
-  humo.js        111 pruebas end-to-end
+  humo.js        113 pruebas end-to-end
   cierre.js      27 pruebas del cierre, contra una carpeta temporal
   diagnostico.js Chequeo previo al despliegue
 tools/

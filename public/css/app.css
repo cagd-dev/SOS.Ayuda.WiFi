@@ -336,6 +336,17 @@ input::placeholder, textarea::placeholder { color: #6e7681; }
   color: var(--texto); border-color: var(--texto-suave);
 }
 
+/* Aviso de rafaga en la consola del operador. Banda superior, nunca un modal:
+   un modal le tapa la pantalla y le roba el foco mientras escribe. */
+.aviso-rafaga {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: .7rem 1rem;
+  background: #2b2410; color: #f2d98a;
+  border-bottom: 2px solid var(--alerta);
+  font-size: .9rem; font-weight: 600; text-align: center;
+  cursor: pointer;
+}
+
 /* Coordenada GPS en la consola: enlace al mapa + boton de copiar al lado.
    El enlace necesita internet; el boton de copiar, no. */
 .coordenada {

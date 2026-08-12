@@ -565,6 +565,52 @@ async function main() {
     });
   });
 
+  /* --- Cuota del WebSocket ---
+   *
+   * El maxPayload limita el TAMANO de cada mensaje, no cuantos. Sin cuota,
+   * cualquiera con un token legitimo podia inundar la base por el socket,
+   * porque la cuota de /api/mensajes solo cubre el carril HTTP.
+   *
+   * Se registra una persona aparte para no gastarle el presupuesto a la que
+   * usan las demas pruebas. */
+  const inundador = await fetch(`${URL_BASE}/api/registro`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ nombre: 'Prueba Inundacion', estado: 'bien' }),
+  }).then(json);
+
+  await new Promise((resolver) => {
+    const socket = new WebSocket(
+      `${URL_BASE.replace('http', 'ws')}/ws?t=${inundador.persona.token}`);
+
+    const RAFAGA = 200;   // muy por encima de cualquier limite humano
+    let frenado = false;
+    let guardados = 0;
+
+    const limite = setTimeout(() => {
+      revisar('el WebSocket frena la inundacion de mensajes', frenado,
+        `guardo ${guardados} de ${RAFAGA} sin frenar`);
+      revisar('y NO guarda los mensajes que pasan del limite', guardados < RAFAGA,
+        `guardo ${guardados}`);
+      try { socket.close(); } catch { /* ya cerrado */ }
+      resolver();
+    }, 6000);
+
+    socket.on('message', (crudo) => {
+      const datos = JSON.parse(crudo.toString());
+      if (datos.tipo === 'listo') {
+        for (let i = 0; i < RAFAGA; i++) {
+          socket.send(JSON.stringify({ tipo: 'mensaje', texto: `inundacion ${i}` }));
+        }
+      }
+      if (datos.tipo === 'mensaje') guardados++;
+      if (datos.tipo === 'lento' || datos.tipo === 'error') frenado = true;
+    });
+
+    socket.on('close', () => { frenado = true; });
+    socket.on('error', () => { clearTimeout(limite); resolver(); });
+  });
+
   // El WebSocket de operador ya NO acepta el PIN: exige la sesion de /admin/login.
   await new Promise((resolver) => {
     const socket = new WebSocket(

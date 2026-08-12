@@ -582,10 +582,20 @@ public partial class MainWindow : Window
             ("SOS Portal HTTP", "TCP", 80),
             ("SOS Portal HTTPS", "TCP", 443),
             ("SOS Portal DNS", "UDP", 53),
+            // El modo punto de acceso propio levanta su propio DHCP y sin esta
+            // regla los celulares no consiguen direccion. Faltaba.
+            ("SOS Portal DHCP", "UDP", 67),
         };
 
         foreach (var (nombre, protocolo, puerto) in reglas)
         {
+            // Borrar antes de anadir: "netsh advfirewall firewall add rule" NO
+            // reemplaza, apila. Pulsar este boton varias veces —o reinstalar—
+            // dejaba el firewall lleno de reglas repetidas con el mismo nombre,
+            // imposibles de auditar. Que el delete falle porque no existia es
+            // lo normal la primera vez, y no se reporta como error.
+            await EjecutarNetshAsync($"advfirewall firewall delete rule name=\"{nombre}\"");
+
             var ok = await EjecutarNetshAsync(
                 $"advfirewall firewall add rule name=\"{nombre}\" dir=in action=allow " +
                 $"protocol={protocolo} localport={puerto}");

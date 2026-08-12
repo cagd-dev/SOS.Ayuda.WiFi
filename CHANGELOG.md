@@ -5,6 +5,54 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.3.1] — 2026-08-12
+
+Los dos puntos que quedaron pendientes de la revisión de seguridad externa.
+
+### Seguridad
+
+- **Se podía inundar la base por el WebSocket.** El límite de 64 KB acotaba el
+  *tamaño* de cada mensaje, no cuántos, y la cuota de `POST /api/mensajes` solo
+  cubría el carril HTTP. Con un token legítimo —registrarse toma diez
+  segundos— se podían meter miles de mensajes por el socket y llenar la base o
+  ahogar la consola del operador.
+
+  Ahora hay cuota de mensajes (40 por persona y minuto, 90 por dispositivo),
+  tope de conexiones simultáneas (4 por sesión, 12 por dispositivo) y aviso al
+  operador cuando alguien dispara una ráfaga.
+
+  Tres decisiones deliberadas:
+
+  - **Al pasarse no se cierra la conexión, se descarta el mensaje y se le
+    avisa a la persona.** Echar a quien pide ayuda por escribir rápido sería
+    peor que el problema que se evita. Solo se corta ante un exceso que ningún
+    humano puede producir, y entonces con código 1008.
+  - **La expulsión la decide el contador de la persona, nunca el de la IP.**
+    Una IP puede estar compartida —un repetidor con NAT delante— y entonces un
+    inundador tumbaría la sesión de sus vecinos.
+  - **HTTP y WebSocket gastan del mismo presupuesto.** Con contadores separados
+    bastaba alternar entre los dos carriles para tener el doble. El almacén de
+    cuotas se movió a `src/cuotas.js`, compartido por ambos.
+
+  Dos pruebas nuevas: que la ráfaga se frena y que los mensajes sobrantes no
+  llegan a guardarse.
+
+### Corregido
+
+- **Las reglas de firewall se duplicaban.** `netsh advfirewall firewall add
+  rule` no reemplaza: apila. Cada reinstalación —y cada arranque de
+  `ARRANCAR.bat`— dejaba un juego nuevo de reglas con el mismo nombre, hasta
+  volver imposible auditar qué estaba realmente abierto. Ahora se borra antes
+  de añadir, en los tres sitios que las ponen.
+- **Al panel le faltaba la regla del DHCP** (UDP 67). El instalador sí la
+  ponía, así que el modo punto de acceso propio funcionaba tras instalar pero
+  no si se abrían los puertos desde el panel.
+- La imagen de presentación del repositorio pesaba 1,06 MB y GitHub no admite
+  más de 1 MB. Se genera ahora en JPEG (140 KB, sin diferencia visible): es una
+  ilustración tipo fotografía y PNG era el formato equivocado para ella.
+
+---
+
 ## [1.3.0] — 2026-08-11
 
 ### Seguridad

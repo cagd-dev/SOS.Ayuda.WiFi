@@ -53,7 +53,14 @@ if not exist "node_modules\express" (
 REM --- Liberar el puerto 53 si lo tiene el cliente DNS de Windows ---
 net stop dnscache >nul 2>&1
 
-REM --- Reglas de firewall (silencioso si ya existen) ---
+REM --- Reglas de firewall ---
+REM Se borran antes de anadirlas: "add rule" NO reemplaza, apila. Este .bat se
+REM ejecuta en cada arranque, asi que sin el delete el firewall acumulaba una
+REM regla repetida por sesion. El delete falla la primera vez y da igual.
+netsh advfirewall firewall delete rule name="SOS Portal HTTP" >nul 2>&1
+netsh advfirewall firewall delete rule name="SOS Portal HTTPS" >nul 2>&1
+netsh advfirewall firewall delete rule name="SOS Portal DNS" >nul 2>&1
+netsh advfirewall firewall delete rule name="SOS Portal DHCP" >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal HTTP" dir=in action=allow protocol=TCP localport=80 >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal HTTPS" dir=in action=allow protocol=TCP localport=443 >nul 2>&1
 netsh advfirewall firewall add rule name="SOS Portal DNS" dir=in action=allow protocol=UDP localport=53 >nul 2>&1
