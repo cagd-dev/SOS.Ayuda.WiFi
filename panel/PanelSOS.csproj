@@ -10,7 +10,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>PanelSOS</AssemblyName>
     <RootNamespace>PanelSOS</RootNamespace>
-    <Version>1.4.0</Version>
+    <Version>1.5.0</Version>
     <Product>SOS · Conectate · Pide Ayuda</Product>
     <Description>Panel de mando del portal de emergencia</Description>
     <!-- NO activar InvariantGlobalization: WPF necesita culturas reales para

@@ -16,6 +16,19 @@ function montarBotonGps(contenedor, token, configServidor) {
   contenedor.dataset.gpsMontado = '1';
   contenedor.innerHTML = '';
 
+  /**
+   * En la ventanita del portal cautivo NO hay GPS. No es un permiso que falte:
+   * el sistema —en iPhone sobre todo— simplemente no expone la ubicacion a esa
+   * WebView. Ofrecer aqui el boton manda a la persona a intentarlo, fallar sin
+   * explicacion y rendirse.
+   *
+   * Se le dice lo que si funciona: salir al navegador normal, donde el GPS va.
+   */
+  if (typeof esMiniNavegador === 'function' && esMiniNavegador(configServidor)) {
+    contenedor.appendChild(bloqueSalirPrimero(configServidor));
+    return;
+  }
+
   // Sin canal seguro no hay GPS posible: mostramos el camino manual y ya.
   if (!configServidor || !configServidor.urlSegura) {
     contenedor.appendChild(bloqueManual());
@@ -118,6 +131,29 @@ function montarBotonGps(contenedor, token, configServidor) {
   explicacion.appendChild(enlaceRespaldo);
   contenedor.appendChild(boton);
   contenedor.appendChild(explicacion);
+}
+
+/**
+ * Estamos en la ventanita del portal: el GPS no existe aqui. En vez de un
+ * boton que va a fallar, la salida — y debajo, el camino manual, que si
+ * funciona en cualquier sitio.
+ */
+function bloqueSalirPrimero(configServidor) {
+  const direccion = (configServidor?.urlBase || location.origin).replace(/^https?:\/\//, '');
+  const bloque = document.createElement('div');
+  bloque.innerHTML = `
+    <div class="aviso" style="margin-bottom:.6rem">
+      <strong>Para mandar tu ubicacion necesitas tu navegador normal.</strong>
+      Esta ventana de conexion del telefono no da acceso al GPS — no es algo que
+      puedas activar, el sistema no lo permite aqui.
+      <p style="margin:.5rem 0 0">
+        Usa el boton <strong>"Salir a mi navegador"</strong> de arriba, y una vez
+        en Chrome o Safari entra a <strong>${escaparTexto(direccion)}</strong> y
+        vuelve a intentarlo desde el chat.
+      </p>
+    </div>`;
+  bloque.appendChild(bloqueManual());
+  return bloque;
 }
 
 /** Camino sin GPS: copiar coordenadas a mano. Funciona siempre. */

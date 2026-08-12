@@ -5,6 +5,93 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.5.0] — 2026-08-12
+
+### Corregido — iPhone
+
+**El portal no soltaba nunca al dispositivo,** y en iOS eso resultó ser un
+desastre silencioso. Contestábamos con un redirect a *todas* las sondas de
+conectividad para siempre, así que el sistema mantenía la red marcada como
+«cautiva» de forma permanente. Consecuencias, todas reportadas desde terreno:
+
+- La ventanita del sistema (*Captive Network Assistant*) era la única vía de
+  entrada. **Safari no servía**, porque iOS no promociona la red a normal
+  mientras crea que el portal está sin completar.
+- **Cerrar esa ventanita desconectaba el WiFi**, porque para iOS equivale a
+  abandonar el portal. La persona se quedaba sin red sin entender por qué.
+- **El GPS no funcionaba ahí**, y no por un permiso mal pedido: Apple
+  simplemente no expone la ubicación a esa WebView. No hay nada que activar.
+  Ofrecer el botón en esa pantalla era mandar a la gente a un callejón sin
+  salida — que es exactamente lo que pasó.
+
+Ahora, **en cuanto alguien queda registrado su dispositivo se libera**: sus
+sondas empiezan a responderse con lo que cada sistema espera oír (el `Success`
+exacto de Apple, el `204` de Android). El teléfono da la red por buena, cierra
+la ventanita **conservando la conexión**, y a partir de ahí el navegador normal
+funciona — con GPS incluido.
+
+Hay además un botón **«Salir a mi navegador»** que provoca esa comprobación en
+el momento, sin esperar a que el sistema lo haga solo.
+
+Sigue sin haber internet de verdad: el DNS mantiene todo apuntando al puesto de
+mando. Lo único que cambia es que el sistema deja de tratar la red como una
+trampa.
+
+### Cambiado — la ventanita ya no da lecciones, da salida
+
+El aviso del mini-navegador ocupaba media pantalla explicando todo lo que podía
+salir mal, y no ofrecía salida a ninguno de esos problemas. En una emergencia
+eso no es informar, es estorbar. Ahora es un bloque corto con un botón que
+resuelve, y los pasos manuales solo aparecen si el automático no funcionó.
+
+En iPhone los pasos dicen lo correcto, que no es obvio: **«Cancelar» → «Usar
+sin Internet»**. Tocar «Cerrar» desconecta el WiFi.
+
+### Seguridad
+
+- **El cifrado de la consola ahora se impone, no se sugiere.** La 1.4.0 la
+  servía por HTTPS pero dejaba HTTP abierto «como respaldo», y eso en la
+  práctica no impone nada: basta teclear la dirección sin la ese —de memoria,
+  de un marcador viejo, del cartel impreso— para que el PIN y la sesión viajen
+  en claro por una red abierta, sin que nadie se entere.
+
+  Con el canal cifrado arriba, el plano de administración **solo existe ahí**:
+
+  | Puerta | Por HTTP |
+  |---|---|
+  | `/operador.html` | redirige al canal cifrado |
+  | `/admin/*` | 403 |
+  | WebSocket de operador | se cierra con 1008 |
+
+  Las tres se cierran juntas a propósito: la que quedara abierta anularía a las
+  otras dos.
+
+  **Si el canal cifrado no está arriba, todo sigue por HTTP.** Esa parte no se
+  negocia: quedarse sin consola en mitad de una emergencia es peor que
+  cualquier escucha. Y `SOS_ADMIN_HTTP=1` fuerza el modo antiguo, por si
+  aparece un equipo donde no haya forma de aceptar el aviso del certificado.
+
+  > **Alcance honesto:** protege del descuido y de la captura pasiva, que es el
+  > ataque realista. No protege contra un intermediario activo, que puede
+  > quitar la redirección. Sube el listón, no cierra la puerta.
+
+  Detectado por ChatGPT en una revisión estática.
+
+- Una prueba que decía comprobar que el WebSocket de operador rechaza el PIN en
+  la URL **estaba pasando por el motivo equivocado**: iba sin cifrar, así que
+  la rechazaban antes de llegar a mirar el PIN. Ahora va por WSS.
+
+### Cambiado
+
+- **La ventana de «Enviar mi ubicación» tiene botón para volver.** Se abre
+  aparte y en otro origen, así que la persona podía quedarse ahí sin saber cómo
+  salir; antes solo había una línea de texto diciendo «ya puedes cerrar esta
+  ventana», y únicamente si todo había salido bien. Ahora el botón está desde
+  el primer momento y también en la pantalla de error: intenta cerrar la
+  ventana y, si el navegador no la deja, vuelve al chat.
+
+---
+
 ## [1.4.0] — 2026-08-12
 
 ### Seguridad

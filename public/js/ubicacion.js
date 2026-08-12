@@ -115,3 +115,39 @@ function fallar(mensaje, puedeReintentar, ayudaHtml = '') {
 $('#btnPedir').addEventListener('click', pedirUbicacion);
 $('#btnReintentar').addEventListener('click', pedirUbicacion);
 $('#btnReenviar').addEventListener('click', pedirUbicacion);
+
+/* ---------------- Volver al chat ----------------
+ *
+ * Esta pagina vive en OTRA ventana y en OTRO origen (el canal HTTPS), asi que
+ * la persona puede quedarse aqui sin saber como salir. Antes solo habia una
+ * linea de texto diciendo "ya puedes cerrar esta ventana", y solo aparecia si
+ * todo habia salido bien.
+ *
+ * Se intenta cerrar primero, porque lo normal es que la ventana la abriera el
+ * chat con window.open y entonces cerrar deja a la persona justo donde estaba.
+ * Si el navegador no deja cerrarla —tipico cuando se llego tocando el enlace
+ * de respaldo— se navega al chat, que es lo que la persona queria.
+ */
+let urlDelChat = token ? `/chat.html?t=${encodeURIComponent(token)}` : '/';
+
+// El chat vive en el canal SIN cifrar, que es donde esta su sesion. Se pregunta
+// cual es en vez de suponerlo: la IP y el puerto cambian segun el despliegue.
+fetch('/api/config', { headers: { Accept: 'application/json' } })
+  .then((r) => r.json())
+  .then((config) => {
+    if (config.urlBase && token) {
+      urlDelChat = `${config.urlBase}/chat.html?t=${encodeURIComponent(token)}`;
+    }
+  })
+  .catch(() => { /* nos quedamos con la ruta relativa */ });
+
+function volverAlChat() {
+  try { window.close(); } catch { /* no se pudo, seguimos */ }
+  // window.close() no lanza cuando lo ignoran: hay que comprobar si seguimos
+  // aqui. 150 ms es de sobra y no se nota.
+  setTimeout(() => { if (!window.closed) location.href = urlDelChat; }, 150);
+}
+
+for (const id of ['#btnVolver', '#btnVolverListo', '#btnVolverFallo']) {
+  $(id)?.addEventListener('click', volverAlChat);
+}

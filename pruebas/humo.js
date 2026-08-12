@@ -29,6 +29,18 @@ const PUERTO_SEGURO = Number(flag('--seguro', '443'));
 const PIN = flag('--pin', process.env.SOS_PIN || '1234');
 
 /**
+ * El plano de administracion vive en el canal cifrado, asi que las pruebas del
+ * operador van por aqui. Es a proposito: si fueran por HTTP no estarian
+ * probando lo que de verdad usa el operador.
+ */
+const URL_ADMIN = `https://127.0.0.1:${PUERTO_SEGURO}`;
+const WS_ADMIN = `wss://127.0.0.1:${PUERTO_SEGURO}`;
+
+// El certificado es autofirmado —es justo lo que estamos probando— asi que hay
+// que decirle a fetch que lo acepte. Solo afecta a este proceso de pruebas.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+/**
  * Cliente del canal HTTPS. Aceptamos el certificado sin verificar a proposito:
  * es autofirmado, que es justo lo que estamos probando. Ademas devolvemos el
  * certificado del servidor para poder inspeccionarlo.
@@ -107,6 +119,42 @@ async function main() {
 
   const ajeno = await fetch(`${URL_BASE}/lo-que-sea`, { headers: { Host: 'www.google.com' }, redirect: 'manual' });
   revisar('dominio ajeno redirige al portal', ajeno.status === 302, `dio ${ajeno.status}`);
+
+  /* --- Soltar el dispositivo al terminar ---
+   *
+   * Un portal cautivo tiene que SOLTAR. El nuestro contestaba 302 a todas las
+   * sondas para siempre, y en iPhone eso es un desastre silencioso: la
+   * ventanita del sistema es la unica via de entrada, Safari no sirve, el GPS
+   * no existe ahi, y cerrarla hace que iOS suelte el WiFi.
+   *
+   * Despues de /api/salir las sondas de ESE dispositivo tienen que responder
+   * lo que su sistema espera oir, o el telefono nunca da la red por buena. */
+  const salida = await fetch(`${URL_BASE}/api/salir`, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' },
+  }).then(json);
+  revisar('POST /api/salir libera el dispositivo', salida.ok === true);
+  revisar('y le dice a un iPhone a que sonda ir',
+    /captive\.apple\.com/.test(salida.sonda || ''), salida.sonda);
+
+  const apple = await fetch(`${URL_BASE}/hotspot-detect.html`, {
+    headers: { Host: 'captive.apple.com' }, redirect: 'manual',
+  });
+  const cuerpoApple = await apple.text();
+  revisar('tras salir, iOS ve su "Success" y cierra la ventanita',
+    apple.status === 200 && /<TITLE>Success<\/TITLE>/i.test(cuerpoApple),
+    `dio ${apple.status}`);
+
+  const android = await fetch(`${URL_BASE}/generate_204`, {
+    headers: { Host: 'connectivitycheck.gstatic.com' }, redirect: 'manual',
+  });
+  revisar('tras salir, Android ve su 204', android.status === 204, `dio ${android.status}`);
+
+  // Y el portal en si NO se libera: quien entre por la direccion sigue viendo
+  // el formulario. Lo que se suelta es la deteccion, no el acceso.
+  const portalTrasSalir = await fetch(`${URL_BASE}/`, { redirect: 'manual' });
+  revisar('pero el portal sigue sirviendose igual', portalTrasSalir.status === 200,
+    `dio ${portalTrasSalir.status}`);
 
   /* --- Registro --- */
   // Cedula inventada, pero con un valor raro a proposito: sirve para comprobar
@@ -361,17 +409,17 @@ async function main() {
   revisar('la linea de GPS es la nueva', lineasGps[0]?.includes('4.700000'), lineasGps[0]);
 
   /* --- Consola de operador --- */
-  const pinMalo = await fetch(`${URL_BASE}/admin/login`, {
+  const pinMalo = await fetch(`${URL_ADMIN}/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ pin: 'pin-incorrecto' }),
   });
   revisar('PIN incorrecto da 401', pinMalo.status === 401, `dio ${pinMalo.status}`);
 
-  const sinSesion = await fetch(`${URL_BASE}/admin/api/personas`, { headers: { Accept: 'application/json' } });
+  const sinSesion = await fetch(`${URL_ADMIN}/admin/api/personas`, { headers: { Accept: 'application/json' } });
   revisar('la API de operador exige sesion', sinSesion.status === 401, `dio ${sinSesion.status}`);
 
-  const acceso = await fetch(`${URL_BASE}/admin/login`, {
+  const acceso = await fetch(`${URL_ADMIN}/admin/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ pin: PIN }),
@@ -380,12 +428,12 @@ async function main() {
 
   const cabecerasOp = { Accept: 'application/json', 'Content-Type': 'application/json', 'X-SOS-Sesion': acceso.sesion };
 
-  const lista = await fetch(`${URL_BASE}/admin/api/personas`, { headers: cabecerasOp }).then(json);
+  const lista = await fetch(`${URL_ADMIN}/admin/api/personas`, { headers: cabecerasOp }).then(json);
   revisar('la lista incluye a la persona', lista.personas?.some((p) => p.id === idPersona));
   revisar('el atrapado va primero en la lista', lista.personas?.[0]?.estado === 'atrapado', lista.personas?.[0]?.estado);
   revisar('cuenta el mensaje sin leer', lista.personas.find((p) => p.id === idPersona)?.sin_leer >= 1);
 
-  await fetch(`${URL_BASE}/admin/api/personas/${idPersona}/mensajes`, {
+  await fetch(`${URL_ADMIN}/admin/api/personas/${idPersona}/mensajes`, {
     method: 'POST',
     headers: cabecerasOp,
     body: JSON.stringify({ texto: 'Te ubicamos. Va una brigada en camino.' }),
@@ -394,7 +442,7 @@ async function main() {
   // Leemos bytes crudos: fetch().text() descarta el BOM al decodificar y no
   // podriamos comprobar que Excel lo va a recibir.
   const csvBytes = new Uint8Array(
-    await fetch(`${URL_BASE}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.arrayBuffer())
+    await fetch(`${URL_ADMIN}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.arrayBuffer())
   );
   const csv = new TextDecoder('utf-8').decode(csvBytes);
   revisar('el CSV incluye a la persona', csv.includes('Prueba De Humo'));
@@ -402,7 +450,7 @@ async function main() {
     csvBytes[0] === 0xef && csvBytes[1] === 0xbb && csvBytes[2] === 0xbf,
     [...csvBytes.slice(0, 3)].join(','));
 
-  const difusion = await fetch(`${URL_BASE}/admin/api/difusion`, {
+  const difusion = await fetch(`${URL_ADMIN}/admin/api/difusion`, {
     method: 'POST',
     headers: cabecerasOp,
     body: JSON.stringify({ texto: 'Punto de agua abierto en la escuela' }),
@@ -410,7 +458,7 @@ async function main() {
   revisar('la difusion llega a todos', difusion.total >= 1, `llego a ${difusion.total}`);
 
   /* --- Reporte dudoso y confidencialidad de lo interno --- */
-  await fetch(`${URL_BASE}/admin/api/personas/${idPersona}/notas`, {
+  await fetch(`${URL_ADMIN}/admin/api/personas/${idPersona}/notas`, {
     method: 'POST',
     headers: cabecerasOp,
     body: JSON.stringify({ notas: 'NOTA INTERNA DEL OPERADOR' }),
@@ -422,7 +470,7 @@ async function main() {
     body: JSON.stringify({ nombre: 'Segunda Persona', estado: 'bien' }),
   }).then(json);
 
-  const marcado = await fetch(`${URL_BASE}/admin/api/personas/${idPersona}/dudoso`, {
+  const marcado = await fetch(`${URL_ADMIN}/admin/api/personas/${idPersona}/dudoso`, {
     method: 'POST',
     headers: cabecerasOp,
     body: JSON.stringify({ dudoso: true, motivo: 'reporte inconsistente', por: 'Operador Prueba' }),
@@ -432,7 +480,7 @@ async function main() {
   revisar('guarda el motivo', marcado.persona?.dudoso_motivo === 'reporte inconsistente');
   revisar('guarda cuando se marco', !!marcado.persona?.dudoso_en);
 
-  const conDudoso = await fetch(`${URL_BASE}/admin/api/personas`, { headers: cabecerasOp }).then(json);
+  const conDudoso = await fetch(`${URL_ADMIN}/admin/api/personas`, { headers: cabecerasOp }).then(json);
   const posDudoso = conDudoso.personas.findIndex((p) => p.id === idPersona);
   const posNormal = conDudoso.personas.findIndex((p) => p.id === segunda.persona.id);
   revisar('el dudoso baja por debajo de un caso normal', posDudoso > posNormal,
@@ -454,7 +502,7 @@ async function main() {
     yoTrasMarca.persona.agente === undefined);
   revisar('pero si sigue viendo lo suyo', yoTrasMarca.persona.codigo === registro.persona.codigo);
 
-  const csvDudoso = await fetch(`${URL_BASE}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.text());
+  const csvDudoso = await fetch(`${URL_ADMIN}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.text());
   revisar('el CSV documenta el motivo del dudoso', csvDudoso.includes('reporte inconsistente'));
 
   // Inyeccion de formulas: el CSV lo abre la autoridad en Excel, y una formula
@@ -466,14 +514,14 @@ async function main() {
   }).then(json);
   revisar('acepta un nombre que parece formula', !!conFormula.persona?.id);
 
-  const csvFormulas = await fetch(`${URL_BASE}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.text());
+  const csvFormulas = await fetch(`${URL_ADMIN}/admin/api/exportar.csv`, { headers: cabecerasOp }).then((r) => r.text());
   revisar('el CSV neutraliza las formulas de Excel',
     csvFormulas.includes('"\'=1+1"') && csvFormulas.includes('"\'@SUM(A1)"'),
     'deben salir con apostrofo delante');
   revisar('y no deja ninguna celda empezando por =',
     !/;"=/.test(csvFormulas) && !/^"=/m.test(csvFormulas));
 
-  const desmarcado = await fetch(`${URL_BASE}/admin/api/personas/${idPersona}/dudoso`, {
+  const desmarcado = await fetch(`${URL_ADMIN}/admin/api/personas/${idPersona}/dudoso`, {
     method: 'POST',
     headers: cabecerasOp,
     body: JSON.stringify({ dudoso: false }),
@@ -482,7 +530,7 @@ async function main() {
 
   // Comparamos contra la persona que creamos en ESTA corrida, no contra la
   // posicion absoluta: si la base ya trae gente, el tope depende de ellos.
-  const reordenada = await fetch(`${URL_BASE}/admin/api/personas`, { headers: cabecerasOp }).then(json);
+  const reordenada = await fetch(`${URL_ADMIN}/admin/api/personas`, { headers: cabecerasOp }).then(json);
   const posTrasQuitar = reordenada.personas.findIndex((p) => p.id === idPersona);
   const posNormalFinal = reordenada.personas.findIndex((p) => p.id === segunda.persona.id);
   revisar('al desmarcar recupera su prioridad sobre el caso normal',
@@ -611,10 +659,14 @@ async function main() {
     socket.on('error', () => { clearTimeout(limite); resolver(); });
   });
 
-  // El WebSocket de operador ya NO acepta el PIN: exige la sesion de /admin/login.
+  // El WebSocket de operador ya NO acepta el PIN: exige la sesion de
+  // /admin/login. Va por WSS a proposito: por ws:// lo rechazarian de todas
+  // formas por no venir cifrado, y entonces esta prueba pasaria por el motivo
+  // equivocado sin que nadie se enterara.
   await new Promise((resolver) => {
     const socket = new WebSocket(
-      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&pin=${encodeURIComponent(PIN)}`);
+      `${WS_ADMIN}/ws?rol=operador&pin=${encodeURIComponent(PIN)}`,
+      { rejectUnauthorized: false });
     let rechazado = false;
     socket.on('message', (crudo) => {
       if (JSON.parse(crudo.toString()).tipo === 'error') rechazado = true;
@@ -622,30 +674,6 @@ async function main() {
     socket.on('close', () => { revisar('el WebSocket de operador rechaza el PIN en la URL', rechazado); resolver(); });
     socket.on('error', () => { revisar('el WebSocket de operador rechaza el PIN en la URL', true); resolver(); });
     setTimeout(resolver, 4000);
-  });
-
-  await new Promise((resolver) => {
-    const socket = new WebSocket(
-      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`);
-    const limite = setTimeout(() => {
-      revisar('el WebSocket de operador acepta la sesion', false, 'se agoto el tiempo');
-      try { socket.close(); } catch { /* ya cerrado */ }
-      resolver();
-    }, 5000);
-    socket.on('message', (crudo) => {
-      const datos = JSON.parse(crudo.toString());
-      if (datos.tipo === 'listo') {
-        revisar('el WebSocket de operador acepta la sesion', datos.rol === 'operador');
-        clearTimeout(limite);
-        socket.close();
-        resolver();
-      }
-    });
-    socket.on('error', () => {
-      revisar('el WebSocket de operador acepta la sesion', false, 'error de conexion');
-      clearTimeout(limite);
-      resolver();
-    });
   });
 
   /* --- La consola de operador sobre el canal cifrado ---
@@ -687,7 +715,8 @@ async function main() {
    * llega tarde a quien manda la brigada no sirve de nada. */
   await new Promise((resolver) => {
     const socket = new WebSocket(
-      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`);
+      `${WS_ADMIN}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`,
+      { rejectUnauthorized: false });
     let avisoGps = null;
 
     const limite = setTimeout(() => {
@@ -719,6 +748,51 @@ async function main() {
 
     socket.on('error', () => { clearTimeout(limite); resolver(); });
   });
+
+  /* --- El plano de administracion NO existe sin cifrar ---
+   *
+   * Ofrecer HTTPS y dejar HTTP abierto "por si acaso" no impone nada: basta
+   * teclear la direccion sin la ese para que el PIN viaje en claro por una red
+   * abierta. Las tres puertas —pagina, API y socket— tienen que estar cerradas
+   * por el mismo lado, o la que quede abierta anula a las otras dos. */
+  const paginaHttp = await fetch(`${URL_BASE}/operador.html`, { redirect: 'manual' });
+  revisar('la consola por HTTP redirige al canal cifrado', paginaHttp.status === 302,
+    `dio ${paginaHttp.status}`);
+  revisar('y redirige a una direccion https',
+    /^https:\/\//.test(paginaHttp.headers.get('location') || ''),
+    paginaHttp.headers.get('location'));
+
+  const apiHttp = await fetch(`${URL_BASE}/admin/api/personas`, { headers: cabecerasOp });
+  revisar('la API de operador por HTTP se rechaza', apiHttp.status === 403, `dio ${apiHttp.status}`);
+
+  const loginHttp = await fetch(`${URL_BASE}/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ pin: PIN }),
+  });
+  revisar('el PIN no se puede mandar sin cifrar', loginHttp.status === 403, `dio ${loginHttp.status}`);
+
+  await new Promise((resolver) => {
+    const socket = new WebSocket(
+      `${URL_BASE.replace('http', 'ws')}/ws?rol=operador&s=${encodeURIComponent(acceso.sesion)}`);
+    let rechazado = false;
+    socket.on('message', (crudo) => {
+      if (JSON.parse(crudo.toString()).tipo === 'error') rechazado = true;
+    });
+    socket.on('close', () => {
+      revisar('el WebSocket de operador sin cifrar se rechaza', rechazado);
+      resolver();
+    });
+    socket.on('error', () => { revisar('el WebSocket de operador sin cifrar se rechaza', true); resolver(); });
+    setTimeout(resolver, 4000);
+  });
+
+  // Lo de la gente NO se toca: el portal sigue en HTTP puro porque las sondas
+  // de portal cautivo lo exigen, y a alguien atrapado no se le puede pedir que
+  // acepte un aviso de certificado.
+  const portalHttp = await fetch(`${URL_BASE}/`, { redirect: 'manual' });
+  revisar('el portal de la gente sigue en HTTP', portalHttp.status === 200,
+    `dio ${portalHttp.status}`);
 
   await new Promise((resolver) => {
     const socket = new WebSocket(URL_BASE.replace('http', 'ws') + '/ws?t=token-falso');

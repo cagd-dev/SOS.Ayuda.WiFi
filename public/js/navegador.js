@@ -1,19 +1,27 @@
 'use strict';
 
 /**
- * Aviso y salida del mini-navegador del portal cautivo.
+ * Salida de la ventanita del portal cautivo.
  *
- * Cuando el telefono abre solo la ventanita de "Iniciar sesion en la red", eso
- * NO es Chrome ni Safari: es una ventana del sistema que se cierra sola cuando
- * al telefono le da la gana, y que no comparte cookies con el navegador real.
+ * Cuando el telefono abre solo "Iniciar sesion en la red", eso NO es Chrome ni
+ * Safari: es una WebView del sistema, recortada a proposito.
  *
- * No existe forma fiable de saltar de ahi al navegador de verdad: el sistema
- * lo aisla a proposito. En Android lo intentamos con un enlace intent:// y, si
- * no pasa nada, mostramos los pasos a mano. En iPhone no hay truco que
- * funcione, asi que vamos directo a las instrucciones.
+ * En iPhone (Captive Network Assistant) las limitaciones son duras:
+ *   - No se puede saltar a Safari desde dentro. No hay truco.
+ *   - NO entrega el GPS. Apple no lo expone ahi, asi que no hay permiso que
+ *     pedir ni forma de arreglarlo desde el codigo.
+ *   - Y mientras el sistema siga considerando la red "cautiva", cerrar la
+ *     ventanita equivale a abandonar el portal: iOS SUELTA el WiFi.
  *
- * Lo importante es que perder esta ventana ya NO cuesta la sesion: el servidor
- * reconoce el telefono por su MAC.
+ * Por eso esto ya no es un aviso, es una PUERTA. El servidor libera el
+ * dispositivo en cuanto la persona queda registrada; aqui se le pide al
+ * sistema que lo compruebe, navegando a su propia sonda de conectividad. El
+ * telefono la ve responder "hay internet", cierra la ventanita solo y se queda
+ * conectado. A partir de ahi Safari funciona, y con el, el GPS.
+ *
+ * La version anterior llenaba la pantalla de advertencias sobre lo que podia
+ * salir mal y no daba salida a ninguna. En una emergencia eso no es informar,
+ * es estorbar.
  */
 
 function montarAvisoNavegador(contenedor, configServidor, opciones = {}) {
@@ -23,62 +31,67 @@ function montarAvisoNavegador(contenedor, configServidor, opciones = {}) {
   contenedor.dataset.avisoMontado = '1';
 
   const direccion = (configServidor?.urlBase || location.origin).replace(/^https?:\/\//, '');
-  const esAndroid = /Android/i.test(navigator.userAgent);
+  const esApple = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   const bloque = document.createElement('section');
-  bloque.className = 'aviso fuerte';
-  bloque.style.marginTop = '1rem';
+  bloque.className = 'aviso';
+  bloque.style.marginTop = '.75rem';
   bloque.innerHTML = `
-    <h2>Estas en la ventana de conexion</h2>
-    <p style="margin-bottom:.6rem">
-      Esta ventanita <strong>puede cerrarse sola</strong>. Para que no te pase,
-      pasate a tu navegador normal.
+    <p style="margin:0 0 .6rem">
+      <strong>Estas en la ventana de conexion del telefono.</strong>
+      Aqui no funciona el envio de ubicacion. Sal a tu navegador normal
+      cuando termines de registrarte.
     </p>
-    <p class="direccion-portal" id="direccionPortal">${escaparTexto(direccion)}</p>
-    <div class="botones-navegador">
-      <button type="button" class="boton" id="btnAbrirNavegador">Abrir en mi navegador</button>
-      <button type="button" class="boton secundario chico" id="btnCopiarDireccion">Copiar direccion</button>
-    </div>
+    <button type="button" class="boton" id="btnSalirPortal">Salir a mi navegador</button>
     <div id="pasosNavegador" hidden style="margin-top:.75rem">
-      <p style="font-weight:700;margin-bottom:.35rem">Hazlo a mano:</p>
+      <p style="font-weight:700;margin:.2rem 0 .35rem">Si no se cerro sola:</p>
       <ol style="padding-left:1.2rem;margin:0">
-        ${esAndroid
-          ? `<li>Pulsa el boton de <strong>Inicio</strong> del telefono.</li>
-             <li>Abre <strong>Chrome</strong>.</li>`
-          : `<li>Cierra esta ventana con <strong>Cancelar</strong> o <strong>Listo</strong>, arriba.</li>
-             <li>Abre <strong>Safari</strong>.</li>`}
+        ${esApple
+          ? `<li>Toca <strong>Cancelar</strong> arriba y elige
+               <strong>Usar sin Internet</strong>.
+               <em>No toques "Cerrar": eso desconecta el WiFi.</em></li>
+             <li>Abre <strong>Safari</strong>.</li>`
+          : `<li>Pulsa el boton de <strong>Inicio</strong> del telefono.</li>
+             <li>Abre <strong>Chrome</strong>.</li>`}
         <li>Escribe: <strong>${escaparTexto(direccion)}</strong></li>
       </ol>
-      <p style="margin:.6rem 0 0;font-size:.9em">
-        Si te aparece "seguir conectado a una red sin internet", responde que <strong>SI</strong>.
+      <p style="margin:.6rem 0 0">
+        <button type="button" class="boton secundario chico" id="btnCopiarDireccion">Copiar direccion</button>
       </p>
     </div>
     <p style="margin:.75rem 0 0;font-size:.9em">
-      <strong>No pierdes nada si se cierra.</strong> Te reconocemos por tu telefono
-      y recuperas tu chat solo${opciones.codigo ? `, o con tu codigo ${escaparTexto(opciones.codigo)}` : ''}.
+      No pierdes nada al salir: te reconocemos por tu telefono${
+        opciones.codigo ? ` y tu codigo es <strong>${escaparTexto(opciones.codigo)}</strong>` : ''
+      }.
     </p>`;
 
   contenedor.appendChild(bloque);
 
   const pasos = bloque.querySelector('#pasosNavegador');
 
-  bloque.querySelector('#btnAbrirNavegador').addEventListener('click', () => {
-    if (esAndroid) {
-      // Si la WebView no maneja intent:// no pasa absolutamente nada, asi que
-      // destapamos los pasos manuales al poco rato y siempre hay salida.
-      try {
-        location.href =
-          `intent://${direccion}/#Intent;scheme=http;action=android.intent.action.VIEW;end`;
-      } catch { /* la WebView lo rechazo */ }
-      setTimeout(() => { pasos.hidden = false; }, 1200);
-    } else {
-      pasos.hidden = false;
-    }
-  });
+  bloque.querySelector('#btnSalirPortal').addEventListener('click', async (evento) => {
+    const boton = evento.currentTarget;
+    boton.disabled = true;
+    boton.textContent = 'Saliendo...';
 
-  bloque.querySelector('#btnCopiarDireccion').addEventListener('click', (evento) => {
-    copiar(`http://${direccion}`, evento.target);
-    pasos.hidden = false;
+    try {
+      const respuesta = await fetch('/api/salir', { method: 'POST', headers: { Accept: 'application/json' } });
+      const datos = await respuesta.json();
+
+      // Navegar a la sonda del propio sistema es lo que dispara la
+      // comprobacion: como el servidor ya responde "hay internet" para este
+      // dispositivo, el telefono da la red por buena y cierra la ventanita.
+      if (datos.sonda) location.href = datos.sonda;
+    } catch { /* sin red: quedan los pasos a mano */ }
+
+    // Si en un segundo y medio seguimos aqui, el sistema no cerro la ventana.
+    setTimeout(() => {
+      pasos.hidden = false;
+      boton.disabled = false;
+      boton.textContent = 'Reintentar salida';
+      bloque.querySelector('#btnCopiarDireccion')
+        ?.addEventListener('click', (e) => copiar(`http://${direccion}`, e.target), { once: false });
+    }, 1500);
   });
 }
 

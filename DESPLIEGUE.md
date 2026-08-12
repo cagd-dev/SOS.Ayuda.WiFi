@@ -345,7 +345,8 @@ Es el router relevando (caso A.1 ya resuelto). Funciona igual.
 | El portal no abre solo | El puerto 53 lo tiene Windows | Como Admin: `net stop dnscache` |
 | El celular no carga nada | Firewall de Windows | Como Admin: `netsh advfirewall firewall add rule name="SOS Portal HTTP" dir=in action=allow protocol=TCP localport=80` |
 | Android se va a datos móviles | Android abandona redes sin internet | Que el usuario responda **SÍ** a "seguir conectado" |
-| iPhone cierra la ventanita | Comportamiento normal del iOS | Que abra Safari y entre a la IP; el cartel la muestra |
+| iPhone: al cerrar la ventanita se cae el WiFi | Todavía no se ha registrado, así que iOS cree que abandonó el portal | Que se registre primero. Al quedar registrado el sistema suelta la red y ya puede cerrarla sin perder la conexión |
+| iPhone: no deja abrir Safari | La red sigue marcada como «cautiva» | Igual: registrarse, o usar el botón **Salir a mi navegador** |
 | "Puerto 80 ocupado" | IIS o el servicio HTTP | Como Admin: `net stop http`, o usa `npm run puertos-altos` |
 | Va lentísimo con mucha gente | Router saturado | Ver límites abajo |
 
@@ -374,6 +375,19 @@ genera solo la primera vez.
 un **enlace a Google Maps**, con un botón **copiar** al lado. El enlace necesita
 internet en el puesto de mando; el botón de copiar funciona siempre, y es lo que se
 dicta por radio a la brigada.
+
+**La consola de operador va por HTTPS.** Ahí viajan el PIN y los datos de las
+víctimas, y esta red es abierta. Desde el panel de mando no notarás nada: la
+consola viene embebida y el certificado se acepta solo. Desde otro equipo hay
+que entrar a `https://<IP>/operador.html` y aceptar el aviso **una vez**; si
+entras sin la **s**, te redirige. Si en algún equipo no hay forma de aceptar el
+certificado, arranca con `SOS_ADMIN_HTTP=1` y vuelve a funcionar sin cifrar.
+
+> **En iPhone hay un paso antes.** El GPS **no funciona dentro de la ventanita
+> de conexión**: Apple no expone la ubicación a esa WebView, así que no hay
+> permiso que activar. La persona tiene que salir a Safari primero — el portal
+> lo detecta y se lo dice, con un botón que lo hace. Al quedar registrada, el
+> sistema suelta la red y Safari empieza a funcionar con normalidad.
 
 **El aviso de certificado es inevitable** — no existe forma de tener un certificado
 válido sin internet. Por eso la pantalla previa es la pieza importante: sin ella la
@@ -501,7 +515,8 @@ Esa IP detectada es la que va en el DHCP del router como DNS primario, y la que
 reservas por MAC.
 
 **Sobre el portátil:** llévalo aunque el servidor viva en la VM. Te sirve como
-consola de operador por WiFi (entra a `http://<IP>/operador.html`) y como respaldo
+consola de operador por WiFi (entra a `https://<IP>/operador.html` — con **s**, y
+acepta el aviso del certificado una vez) y como respaldo
 completo: instala ahí el mismo `.exe` y tienes el sistema en pie otra vez. Si el
 servidor vive en el portátil, ten presente que **al cerrar la tapa se suspende y se
 cae el portal**: pon el plan de energía en "nunca suspender".

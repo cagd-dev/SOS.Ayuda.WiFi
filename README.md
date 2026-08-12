@@ -3,8 +3,8 @@
 ![SOS · Conéctate · Pide Ayuda — portal cautivo de emergencia para localizar personas tras un desastre](empaquetar/recursos/github-social.jpg)
 
 [![Licencia: GPL v3](https://img.shields.io/badge/licencia-GPLv3-blue.svg)](LICENSE)
-[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.4.0-blue.svg)](CHANGELOG.md)
-[![Pruebas](https://img.shields.io/badge/pruebas-144%20OK-brightgreen.svg)](pruebas/humo.js)
+[![Versión](https://img.shields.io/badge/versi%C3%B3n-1.5.0-blue.svg)](CHANGELOG.md)
+[![Pruebas](https://img.shields.io/badge/pruebas-154%20OK-brightgreen.svg)](pruebas/humo.js)
 [![Descargar](https://img.shields.io/badge/descargar-Windows-orange.svg)](https://github.com/cagd-dev/SOS.Ayuda.WiFi/releases)
 
 **Portal cautivo de emergencia para localizar personas después de un desastre
@@ -149,7 +149,7 @@ Equivalentes por línea de comandos:
 | `npm run puertos-altos` | Igual, pero en 8080/8443/5354 (no necesita Administrador) |
 | `npm run dev` | Con recarga automática al editar |
 | `npm run diagnostico` | Chequeo previo al despliegue |
-| `npm run prueba` | 117 pruebas end-to-end contra el servidor corriendo |
+| `npm run prueba` | 127 pruebas end-to-end contra el servidor corriendo |
 | `npm run prueba-cierre` | 27 pruebas del cierre de operación (no necesita el servidor) |
 | `npm run limpiar` | Respalda y vacía la base (con el servidor detenido) |
 
@@ -209,7 +209,7 @@ public/
   cartel.html     Cartel imprimible con el nombre de la red
   js/gps-enlace.js  Explicación previa al aviso de certificado (portal y chat)
 pruebas/
-  humo.js        117 pruebas end-to-end
+  humo.js        127 pruebas end-to-end
   cierre.js      27 pruebas del cierre, contra una carpeta temporal
   diagnostico.js Chequeo previo al despliegue
 tools/
@@ -376,6 +376,7 @@ siga vivo, y lo limpia.
 | `SOS_PUESTO` | `Puesto de Mando SOS` | Nombre que ve la gente |
 | `SOS_BIENVENIDA` | — | Texto de bienvenida del portal |
 | `SOS_HOST` | `sos.ayuda` | Nombre amigable. **Nunca uses `.local`**: los iPhone lo resuelven por mDNS y se saltan nuestro DNS. |
+| `SOS_ADMIN_HTTP` | — | `1` deja la consola de operador accesible **también sin cifrar**. Válvula de escape para un equipo donde no haya forma de aceptar el aviso del certificado. |
 
 Equivalentes por línea de comandos: `--ip`, `--http`, `--dns`, `--https`, `--sin-dns`,
 `--sin-https`, `--dns-verboso`.
@@ -417,14 +418,29 @@ la sesión y los datos de las víctimas, y esta red es abierta. La diferencia es
 en a quién se le puede pedir que acepte un aviso de certificado: **al operador
 sí, a alguien atrapado no**. Por eso el portal de la gente se queda en HTTP.
 
-Dentro del panel de mando no se ve ningún aviso, porque WebView2 acepta el
-certificado explícitamente. Y el HTTP sigue disponible como respaldo: si el
-certificado falla, quedarse sin consola sería mucho peor.
+**Y no es una recomendación, es la única puerta.** Cuando el canal cifrado está
+arriba, el plano de administración *solo* existe ahí: `/operador.html` por HTTP
+redirige, `/admin/*` responde 403 y el WebSocket de operador sin cifrar se
+cierra. Ofrecer HTTPS dejando HTTP abierto "por si acaso" no impone nada: basta
+teclear la dirección sin la ese —de memoria, de un marcador viejo— para que el
+PIN viaje en claro sin que nadie se entere.
 
-> **Alcance honesto:** esto protege contra la captura pasiva de tráfico, que es
+Las tres puertas se cierran juntas a propósito: la que quedara abierta anularía
+a las otras dos.
+
+Dentro del panel de mando no se ve ningún aviso, porque WebView2 acepta el
+certificado explícitamente.
+
+**Si el canal cifrado NO está arriba, todo sigue por HTTP.** Esa parte no se
+negocia: quedarse sin consola en mitad de una emergencia es peor que cualquier
+escucha. Y `SOS_ADMIN_HTTP=1` fuerza el modo antiguo, por si aparece un equipo
+donde no haya forma de aceptar el certificado.
+
+> **Alcance honesto:** esto protege del descuido y de la captura pasiva, que es
 > el ataque realista en un WiFi abierto. No protege contra un intermediario
-> activo, porque un certificado autofirmado que se acepta a mano puede ser
-> sustituido por otro. Es una mejora real, no una garantía.
+> activo: quien controle la red puede quitar la redirección, y un certificado
+> autofirmado que se acepta a mano puede ser sustituido por otro. Sube el
+> listón, no cierra la puerta.
 
 Detalles que hacen que funcione:
 

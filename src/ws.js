@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const { personas, mensajes, vistaPersona } = require('./db');
 const { limitar } = require('./cuotas');
 const { normalizarIp } = require('./red');
+const canal = require('./canal');
 
 /** personaId -> Set<WebSocket> */
 const conexionesPersona = new Map();
@@ -97,6 +98,16 @@ function iniciarWs(servidorHttp, { sesionValida }) {
     });
 
     if (rol === 'operador') {
+      // Mismo criterio que en las rutas /admin/*: si el canal cifrado esta
+      // arriba, el operador entra por ahi. Si no, este socket seria la puerta
+      // de atras que deja pasar en claro lo que la puerta de delante bloquea.
+      if (canal.exigeCifrado() && !canal.esSegura(req)) {
+        enviar(socket, 'error', {
+          mensaje: 'La consola de operador solo funciona por el canal cifrado.',
+        });
+        return socket.close(1008, 'canal sin cifrar');
+      }
+
       // Se valida la SESION obtenida en /admin/login, no el PIN. El PIN en la
       // URL acabaria en el historial del navegador y en cualquier registro que
       // guarde direcciones, y ademas es reutilizable indefinidamente; la

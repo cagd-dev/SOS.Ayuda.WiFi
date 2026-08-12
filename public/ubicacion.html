@@ -12,10 +12,14 @@
 <body>
 
 <header class="cabecera">
-  <div>
+  <div style="flex:1;min-width:0">
     <div class="marca">ENVIAR MI <span>UBICACION</span></div>
     <div class="sub">Canal seguro del puesto de mando</div>
   </div>
+  <!-- La salida existe desde el primer momento, no solo al terminar. Esta
+       ventana se abre aparte y sin este boton la persona se queda sin saber
+       como volver: la version anterior solo lo decia con texto, al final. -->
+  <button type="button" class="boton secundario chico" id="btnVolver">← Volver al chat</button>
 </header>
 
 <main class="envoltura">
@@ -53,10 +57,8 @@
     <p>Tus coordenadas</p>
     <p><strong class="codigo" id="coordenadas" style="font-size:1.3rem">—</strong></p>
     <p style="color:var(--texto-suave)" id="precision"></p>
+    <button type="button" class="boton" id="btnVolverListo">Volver al chat</button>
     <button type="button" class="boton secundario" id="btnReenviar">Enviar de nuevo (si te moviste)</button>
-    <p style="margin-top:1rem;color:var(--texto-suave);font-size:.9rem">
-      Ya puedes cerrar esta ventana y volver al chat.
-    </p>
   </section>
 
   <!-- Estado 4: fallo -->
@@ -64,9 +66,10 @@
     <div class="error" id="mensajeFallo">No se pudo obtener la ubicacion.</div>
     <div id="ayudaFallo"></div>
     <button type="button" class="boton" id="btnReintentar">Reintentar</button>
+    <button type="button" class="boton secundario" id="btnVolverFallo">Volver al chat</button>
     <p style="margin-top:1rem;color:var(--texto-suave);font-size:.9rem">
-      Si no funciona, vuelve al chat y escribe la direccion con un punto de
-      referencia que se vea desde afuera. Sirve casi igual de bien.
+      Si no funciona, escribe en el chat la direccion con un punto de referencia
+      que se vea desde afuera. Sirve casi igual de bien.
     </p>
   </section>
 

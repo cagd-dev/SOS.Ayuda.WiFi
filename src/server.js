@@ -127,6 +127,11 @@ async function arrancar() {
         });
         servidorSeguro.listen(config.puertoHttps, '0.0.0.0', resolver);
       });
+
+      // A partir de aqui el plano de administracion se exige por este canal.
+      // Se marca DESPUES de que escuche de verdad: marcarlo antes dejaria la
+      // consola inaccesible por los dos lados si el listen fallara.
+      require('./canal').fijarCanalSeguro(config.urlSegura);
     } catch (err) {
       servidorSeguro = null;
       avisoHttps = err.message;
@@ -188,7 +193,10 @@ async function arrancar() {
   // el aviso del certificado da problemas en algun equipo.
   console.log(`  Consola de operador    : ${servidorSeguro ? `${config.urlSegura}/operador.html` : `${config.urlBase}/operador.html`}   (PIN ${config.pinOperador})`);
   if (servidorSeguro) {
-    console.log(`     (acepta el aviso del certificado una vez; sin cifrar: ${config.urlBase}/operador.html)`);
+    const { PERMITE_HTTP } = require('./canal');
+    console.log(PERMITE_HTTP
+      ? '     (acepta el aviso del certificado una vez; SOS_ADMIN_HTTP=1: tambien sin cifrar)'
+      : '     (acepta el aviso del certificado una vez; por HTTP redirige aqui)');
   }
   console.log(`  Canal seguro (GPS)     : ${servidorSeguro ? config.urlSegura : 'APAGADO'}`);
   console.log(`  Servidor DNS           : ${dns ? `activo en el puerto ${config.puertoDns}` : 'APAGADO'}`);

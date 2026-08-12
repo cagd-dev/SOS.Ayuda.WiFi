@@ -50,6 +50,7 @@ function normalizar(texto) {
  * para tener el doble de presupuesto.
  * ------------------------------------------------------------------ */
 const { limitar } = require('./cuotas');
+const canal = require('./canal');
 
 function cuota(nombre, maximo, ventana) {
   return (req, res, siguiente) => {
@@ -131,6 +132,83 @@ const RUTAS_SONDA = new Set([
   '/kindle-wifi/wifistub.html',
 ]);
 
+/**
+ * Lo que cada sistema espera oir cuando SI hay internet. Responder esto es lo
+ * que hace que el telefono de por buena la red y cierre la ventanita.
+ */
+function responderSondaComoSiHubieraInternet(req, res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+  switch (req.path) {
+    case '/generate_204':
+    case '/gen_204':
+      return res.status(204).end();
+
+    case '/hotspot-detect.html':
+    case '/library/test/success.html':
+      // El texto exacto que busca iOS. Si no coincide, la ventanita no se cierra.
+      return res.type('html').send(
+        '<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>'
+      );
+
+    case '/connecttest.txt':
+      return res.type('text/plain').send('Microsoft Connect Test');
+    case '/ncsi.txt':
+      return res.type('text/plain').send('Microsoft NCSI');
+    case '/success.txt':
+      return res.type('text/plain').send('success\n');
+
+    default:
+      return res.status(204).end();
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Dispositivos liberados
+ *
+ * Un portal cautivo tiene que SOLTAR al dispositivo cuando termina. El nuestro
+ * no lo hacia: contestaba 302 a todas las sondas para siempre, y eso en iPhone
+ * es un desastre silencioso.
+ *
+ * Lo que pasa en iOS mientras la red sigue "cautiva":
+ *   - La ventanita (Captive Network Assistant) es la UNICA via de entrada.
+ *     No es Safari: es una WebView recortada.
+ *   - Safari no sirve, porque el sistema no promociona la red a normal.
+ *   - Cerrar la ventanita equivale a "no complete el portal", y iOS SUELTA
+ *     el WiFi. La persona se queda sin red sin entender por que.
+ *   - La ventanita NO entrega el GPS. No hay permiso que pedir: Apple
+ *     directamente no lo expone ahi. Ofrecer el boton de ubicacion en esa
+ *     pantalla es mandar a la gente a un callejon sin salida.
+ *
+ * En cuanto alguien queda registrado, su dispositivo pasa a esta lista y sus
+ * sondas empiezan a responderse como si hubiera internet. El telefono cierra
+ * la ventanita solo, se queda conectado, y a partir de ahi Safari funciona
+ * normal — con GPS incluido.
+ *
+ * Sigue sin haber internet de verdad: el DNS mantiene todo apuntando aqui. Lo
+ * unico que cambia es que el sistema deja de tratar la red como una trampa.
+ * ------------------------------------------------------------------ */
+const liberados = new Map();
+const VIDA_LIBERACION = 12 * 60 * 60 * 1000;  // una jornada de operacion
+
+function marcarLiberado(claves) {
+  const hasta = Date.now() + VIDA_LIBERACION;
+  for (const clave of claves) {
+    if (clave) liberados.set(clave, hasta);
+  }
+}
+
+function estaLiberado(claves) {
+  const ahora = Date.now();
+  for (const clave of claves) {
+    if (!clave) continue;
+    const hasta = liberados.get(clave);
+    if (hasta && hasta > ahora) return true;
+    if (hasta) liberados.delete(clave);
+  }
+  return false;
+}
+
 function crearApp() {
   const app = express();
   app.disable('x-powered-by');
@@ -149,17 +227,50 @@ function crearApp() {
    * al portal. Como el DNS resuelve todo hacia esta maquina, aqui cae el mundo
    * entero: las sondas del sistema y cualquier dominio que la gente teclee.
    */
-  app.use((req, res, siguiente) => {
+  app.use(async (req, res, siguiente) => {
     const esSonda = RUTAS_SONDA.has(req.path);
     const hostAjeno = !misHosts.has(req.hostname);
 
     if (!esSonda && !hostAjeno) return siguiente();
+
+    // Si este dispositivo ya termino, se le deja salir: se le contesta a la
+    // sonda lo que su sistema espera oir. El telefono cierra la ventanita, se
+    // queda conectado, y su navegador normal empieza a funcionar.
+    if (esSonda && (await dispositivoLiberado(req))) {
+      return responderSondaComoSiHubieraInternet(req, res);
+    }
 
     // 302 hacia el portal: esto es lo que dispara el aviso "Iniciar sesion en
     // la red" y abre la ventanita del portal cautivo en el celular.
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.set('Pragma', 'no-cache');
     return res.redirect(302, `${config.urlBase}/?portal=1`);
+  });
+
+  /**
+   * El plano de administracion, solo por el canal cifrado.
+   *
+   * Ofrecer HTTPS y dejar HTTP abierto "por si acaso" no impone nada: basta
+   * teclear la direccion sin la ese —de memoria, de un marcador viejo— para
+   * que el PIN y la sesion viajen en claro por una red abierta, sin que nadie
+   * se entere. La pagina se redirige y la API se rechaza.
+   *
+   * Solo aplica cuando el canal cifrado esta REALMENTE arriba. Si el
+   * certificado fallo, todo sigue por HTTP: quedarse sin consola en mitad de
+   * una emergencia es peor que cualquier escucha. Ver src/canal.js.
+   */
+  app.use((req, res, siguiente) => {
+    const esAdmin = req.path === '/operador.html' || req.path.startsWith('/admin/');
+    if (!esAdmin || canal.esSegura(req) || !canal.exigeCifrado()) return siguiente();
+
+    if (req.path === '/operador.html') {
+      return res.redirect(302, `${canal.canalSeguro()}/operador.html`);
+    }
+
+    return res.status(403).json({
+      error: 'La consola de operador solo funciona por el canal cifrado.',
+      usa: `${canal.canalSeguro()}/operador.html`,
+    });
   });
 
   app.use((req, res, siguiente) => {
@@ -182,6 +293,47 @@ function crearApp() {
   // Alta: el tablon se consulta mientras se teclea, letra a letra.
   const cuotaDirectorio = cuota('directorio', 120, 5 * MINUTO);
   const cuotaReconocer  = cuota('reconocer', 40, 5 * MINUTO);
+
+  /* ---------------- Liberar el dispositivo ---------------- */
+
+  /**
+   * Claves con las que se reconoce un dispositivo. La MAC es la buena —
+   * sobrevive a los cambios de IP entre reconexiones — pero puede no estar
+   * disponible, asi que la IP queda de respaldo.
+   */
+  async function clavesDe(req) {
+    const ip = normalizarIp(req.ip);
+    let mac = null;
+    try { mac = await macDe(req.ip); } catch { /* sin ARP seguimos con la IP */ }
+    return [mac, ip];
+  }
+
+  async function liberarDispositivo(req) {
+    marcarLiberado(await clavesDe(req));
+  }
+
+  async function dispositivoLiberado(req) {
+    return estaLiberado(await clavesDe(req));
+  }
+
+  /**
+   * "Ya termine aqui". El cliente llama a esto y despues navega a la sonda de
+   * su sistema: como ya esta liberado, se le responde que hay internet y el
+   * telefono cierra la ventanita del portal conservando el WiFi.
+   *
+   * Se devuelve a que direccion tiene que navegar, porque cada sistema
+   * pregunta por la suya.
+   */
+  app.post('/api/salir', async (req, res) => {
+    await liberarDispositivo(req);
+
+    const ua = String(req.get('user-agent') || '');
+    const sonda = /iPhone|iPad|iPod|Macintosh/i.test(ua)
+      ? 'http://captive.apple.com/hotspot-detect.html'
+      : 'http://connectivitycheck.gstatic.com/generate_204';
+
+    res.json({ ok: true, sonda, urlBase: config.urlBase });
+  });
 
   /* ---------------- API de la persona ---------------- */
 
@@ -251,6 +403,10 @@ function crearApp() {
         'una brigada y le quita el turno a alguien atrapado de verdad.',
     });
 
+    // Quedar registrado ES completar el portal: a partir de aqui el telefono
+    // puede salir de la ventanita sin perder el WiFi.
+    await liberarDispositivo(req);
+
     return responder(req, res, 200, { ok: true, persona: vistaPersona(persona) }, `/chat.html?t=${persona.token}`);
   });
 
@@ -265,7 +421,7 @@ function crearApp() {
    * con el nombre vacio eso es startsWith('') — cierto SIEMPRE. Bastaba un
    * codigo, que el tablon publico ademas regalaba, para llevarse la sesion.
    */
-  app.post('/api/recuperar', cuotaRecuperar, (req, res) => {
+  app.post('/api/recuperar', cuotaRecuperar, async (req, res) => {
     const codigo = String(req.body.codigo || '').trim().toUpperCase();
     const nombre = normalizar(req.body.nombre);
     if (nombre.length < 3) {
@@ -277,6 +433,7 @@ function crearApp() {
       return res.status(404).json({ error: 'No encontramos ese codigo con ese nombre.' });
     }
     ponerCookie(res, 'sos_token', fila.token);
+    await liberarDispositivo(req);
     res.json({ ok: true, persona: vistaPersona(fila) });
   });
 
@@ -313,6 +470,7 @@ function crearApp() {
     personas.refrescarRed(persona.id, { ip: normalizarIp(req.ip), mac });
     personas.marcarVisto(persona.id);
     ponerCookie(res, 'sos_token', persona.token);
+    await liberarDispositivo(req);
     res.json({ ok: true, persona: vistaPersona(persona) });
   });
 
