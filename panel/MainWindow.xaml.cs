@@ -15,7 +15,7 @@ public partial class MainWindow : Window
     private bool _ocupado;
 
     /* Vista principal: consola de operador, portal, o el registro del servidor. */
-    private enum Vista { Consola, Portal, Registro }
+    private enum Vista { Consola, Cartel, Registro }
     private Vista _vista = Vista.Consola;
 
     private bool _webListo;          // WebView2 inicializado correctamente
@@ -119,24 +119,31 @@ public partial class MainWindow : Window
 
         var activo = _estado.PortalActivo || _nodo.ServidorActivo;
 
-        txtPortal.Text = activo ? "PORTAL CORRIENDO" : "PORTAL DETENIDO";
-        txtPortal.Foreground = new SolidColorBrush(activo
-            ? Color.FromRgb(0x3F, 0xB9, 0x50) : Color.FromRgb(0xF8, 0x51, 0x49));
-        chipPortal.Background = new SolidColorBrush(activo
-            ? Color.FromRgb(0x10, 0x26, 0x1A) : Color.FromRgb(0x2D, 0x12, 0x14));
+        PintarLed(ledPortal, txtPortal, activo ? Led.Bien : Led.Apagado,
+            activo ? "Portal" : "Portal detenido");
 
         // Que el DNS no arranque es silencioso y rompe el portal cautivo entero:
-        // aqui tiene que verse sin buscarlo.
-        chipDns.Visibility = activo ? Visibility.Visible : Visibility.Collapsed;
-        if (activo)
+        // el celular deja de abrir la pantalla solo. Tiene que verse sin buscarlo.
+        if (!activo)
+        {
+            PintarLed(ledDns, txtDns, Led.Apagado, "DNS");
+        }
+        else
         {
             var hayDns = _estado.PuertoDns > 0;
-            txtDns.Text = hayDns ? $"DNS activo ({_estado.PuertoDns})" : "DNS APAGADO — no abrira solo";
-            txtDns.Foreground = new SolidColorBrush(hayDns
-                ? Color.FromRgb(0x3F, 0xB9, 0x50) : Color.FromRgb(0xF8, 0x51, 0x49));
-            chipDns.Background = new SolidColorBrush(hayDns
-                ? Color.FromRgb(0x10, 0x26, 0x1A) : Color.FromRgb(0x2D, 0x12, 0x14));
+            PintarLed(ledDns, txtDns, hayDns ? Led.Bien : Led.Mal,
+                hayDns ? $"DNS  {_estado.PuertoDns}" : "DNS caido — no abrira solo");
         }
+
+        // El DHCP solo existe en modo punto de acceso propio. Se distingue
+        // "no aplica" (gris) de "deberia estar y fallo" (rojo): en el segundo
+        // caso los celulares se quedan sin direccion y no llegan a ningun sitio.
+        PintarLed(ledDhcp, txtDhcp, _estado.Dhcp switch
+        {
+            "activo" => Led.Bien,
+            "fallo" => Led.Mal,
+            _ => Led.Apagado,
+        }, _estado.Dhcp == "fallo" ? "DHCP caido" : "DHCP");
 
         chipPin.Visibility = _estado.PinDeFabrica ? Visibility.Visible : Visibility.Collapsed;
 
@@ -197,6 +204,49 @@ public partial class MainWindow : Window
     }
 
     /* ---------------------------------------------------------------- */
+    /* Leds de estado                                                    */
+    /* ---------------------------------------------------------------- */
+
+    private enum Led { Apagado, Bien, Mal }
+
+    /// <summary>
+    /// Pinta un led y su etiqueta. Tres estados y no dos: "apagado" (gris) no
+    /// es lo mismo que "fallando" (rojo), y confundirlos manda a buscar el
+    /// problema al sitio equivocado — el DHCP en modo router esta apagado
+    /// porque no toca, no porque se haya caido.
+    /// </summary>
+    private static void PintarLed(System.Windows.Shapes.Ellipse led, System.Windows.Controls.TextBlock etiqueta,
+                                  Led estado, string texto)
+    {
+        var color = estado switch
+        {
+            Led.Bien => Color.FromRgb(0x3F, 0xB9, 0x50),
+            Led.Mal => Color.FromRgb(0xF8, 0x51, 0x49),
+            _ => Color.FromRgb(0x48, 0x4F, 0x58),
+        };
+
+        led.Fill = new SolidColorBrush(color);
+
+        // Halo del mismo color cuando esta encendido: a un metro de la pantalla
+        // un circulo de 11 px sin brillo no se distingue del fondo.
+        led.Effect = estado == Led.Apagado ? null : new System.Windows.Media.Effects.DropShadowEffect
+        {
+            Color = color,
+            ShadowDepth = 0,
+            BlurRadius = 10,
+            Opacity = 0.9,
+        };
+
+        etiqueta.Text = texto;
+        etiqueta.Foreground = new SolidColorBrush(estado switch
+        {
+            Led.Mal => Color.FromRgb(0xF8, 0x51, 0x49),
+            Led.Bien => Color.FromRgb(0xC9, 0xD1, 0xD9),
+            _ => Color.FromRgb(0x8B, 0x94, 0x9E),
+        });
+    }
+
+    /* ---------------------------------------------------------------- */
     /* Vista principal                                                   */
     /* ---------------------------------------------------------------- */
 
@@ -219,7 +269,7 @@ public partial class MainWindow : Window
     private void Pestana_Click(object sender, RoutedEventArgs e)
     {
         _vista =
-            ReferenceEquals(sender, pestanaPortal) ? Vista.Portal :
+            ReferenceEquals(sender, pestanaCartel) ? Vista.Cartel :
             ReferenceEquals(sender, pestanaRegistro) ? Vista.Registro : Vista.Consola;
         PintarVista();
     }
@@ -237,7 +287,10 @@ public partial class MainWindow : Window
     /// </summary>
     private string UrlDeLaVista() => _vista switch
     {
-        Vista.Portal => _estado.UrlBase,
+        // El cartel se sirve por HTTP: es lo que se manda a imprimir, no lleva
+        // nada sensible, y asi el dialogo de impresion no arrastra el aviso del
+        // certificado autofirmado.
+        Vista.Cartel => $"{_estado.UrlBase}/cartel.html",
         _ => string.IsNullOrWhiteSpace(_estado.UrlSegura)
             ? $"{_estado.UrlBase}/operador.html"
             : $"{_estado.UrlSegura}/operador.html",
@@ -246,7 +299,7 @@ public partial class MainWindow : Window
     private void PintarVista()
     {
         pestanaConsola.Tag = _vista == Vista.Consola ? "activa" : null;
-        pestanaPortal.Tag = _vista == Vista.Portal ? "activa" : null;
+        pestanaCartel.Tag = _vista == Vista.Cartel ? "activa" : null;
         pestanaRegistro.Tag = _vista == Vista.Registro ? "activa" : null;
 
         var enRegistro = _vista == Vista.Registro;

@@ -167,12 +167,31 @@ que da más alcance y aguanta más gente. Sigue leyendo el paso 3.1.
 ### Modo punto de acceso propio — sin router
 
 El WiFi lo levanta **la tarjeta del propio equipo** y el DHCP lo pone el sistema.
-Sirve cuando no hay router a mano, pero tiene dos límites serios:
+Sirve cuando no hay router a mano. Hay **tres mecanismos**, y el sistema elige el
+mejor que admita la tarjeta:
 
-- **Menos alcance y menos clientes** que cualquier router con antenas externas.
-- **No todas las tarjetas pueden.** Muchos adaptadores USB baratos no soportan ni
-  red hospedada ni SoftAP. El panel trae el botón **"¿Puede esta tarjeta ser punto
-  de acceso?"**, que responde SÍ o NO con el motivo concreto.
+| Mecanismo | Clientes | Notas |
+|---|---|---|
+| Red hospedada | ~8 o más | El mejor, pero casi ningún driver moderno lo admite ya |
+| Soft AP | ~8 | Lo que usa el «Punto de acceso móvil» de Windows |
+| **Wi-Fi Direct (legacy)** | **2 a 8, según la tarjeta** | El comodín: está en casi cualquier adaptador actual |
+
+Wi-Fi Direct emite un **SSID normal con clave WPA2**: cualquier teléfono se
+conecta desde la lista de siempre, iPhone incluido. El tope de clientes lo pone
+el driver y **puede ser tan bajo como 2**.
+
+> Dos teléfonos es poquísimo al lado de un router. Pero en un punto con poca
+> gente, poder atender a dos personas es infinitamente mejor que no poder
+> atender a ninguna. Por eso la opción existe — y por eso el diagnóstico te dice
+> el número **antes** de que salgas a terreno.
+
+El panel trae el botón **«¿Puede esta tarjeta ser punto de acceso?»**, que
+responde SÍ o NO, con qué mecanismo y con cuántos clientes admite.
+
+**Si Windows no te deja fijar la IP** (hace falta Administrador), la tarjeta se
+queda con la que él asigna, normalmente `192.168.137.1`. El diagnóstico te la
+dice: o lanzas el panel elevado, o configuras el modo propio con *esa* IP para
+que el DHCP reparta en su mismo segmento.
 
 Windows **no permite red hospedada abierta**, así que hay clave obligatoria. Para
 que la gente no dependa del cartel, el sistema puede **meter la clave dentro del

@@ -37,18 +37,27 @@
                      FontSize="12" Text="Puesto de Mando SOS"/>
         </StackPanel>
 
+        <!-- Tablero de estado.
+             Antes eran chips de texto que aparecian y desaparecian, asi que la
+             ausencia de un aviso podia significar "va bien" o "ni se comprobo".
+             Con leds los tres servicios estan SIEMPRE a la vista y en el mismo
+             sitio: se lee de un vistazo, que es lo que hace falta con prisa. -->
         <WrapPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Center">
-          <Border x:Name="chipPortal" CornerRadius="12" Padding="12,5" Margin="0,0,8,0"
-                  Background="#2D1214">
-            <TextBlock x:Name="txtPortal" Text="PORTAL DETENIDO"
-                       Foreground="#F85149" FontWeight="Bold" FontSize="12"/>
-          </Border>
-          <Border x:Name="chipDns" CornerRadius="12" Padding="12,5" Margin="0,0,8,0"
-                  Background="{StaticResource Superficie2}" Visibility="Collapsed">
-            <TextBlock x:Name="txtDns" Text="DNS" FontSize="12" FontWeight="Bold"/>
-          </Border>
+          <StackPanel Orientation="Horizontal" Margin="0,0,18,0" VerticalAlignment="Center">
+            <Ellipse x:Name="ledPortal" Style="{StaticResource Led}"/>
+            <TextBlock x:Name="txtPortal" Text="Portal" Style="{StaticResource EtiquetaLed}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,18,0" VerticalAlignment="Center">
+            <Ellipse x:Name="ledDns" Style="{StaticResource Led}"/>
+            <TextBlock x:Name="txtDns" Text="DNS" Style="{StaticResource EtiquetaLed}"/>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,18,0" VerticalAlignment="Center">
+            <Ellipse x:Name="ledDhcp" Style="{StaticResource Led}"/>
+            <TextBlock x:Name="txtDhcp" Text="DHCP" Style="{StaticResource EtiquetaLed}"/>
+          </StackPanel>
+
           <Border x:Name="chipPin" CornerRadius="12" Padding="12,5"
-                  Background="#2B2410" Visibility="Collapsed">
+                  Background="#2B2410" Visibility="Collapsed" VerticalAlignment="Center">
             <TextBlock Text="PIN DE FABRICA — CAMBIALO"
                        Foreground="#F2D98A" FontWeight="Bold" FontSize="12"/>
           </Border>
@@ -243,8 +252,12 @@
           <StackPanel Orientation="Horizontal">
             <Button x:Name="pestanaConsola" Style="{StaticResource Pestana}" Tag="activa"
                     Content="Consola de operador" Click="Pestana_Click"/>
-            <Button x:Name="pestanaPortal" Style="{StaticResource Pestana}"
-                    Content="Portal de la gente" Click="Pestana_Click"/>
+            <!-- Cartel y no "portal de la gente": el operador no necesita mirar
+                 el formulario de registro, necesita IMPRIMIR el cartel con el
+                 nombre de la red. Si nadie sabe a que red conectarse, no hay
+                 censo que valga. El portal sigue accesible desde el cajon. -->
+            <Button x:Name="pestanaCartel" Style="{StaticResource Pestana}"
+                    Content="Cartel para imprimir" Click="Pestana_Click"/>
             <Button x:Name="pestanaRegistro" Style="{StaticResource Pestana}"
                     Content="Registro" Click="Pestana_Click"/>
           </StackPanel>

@@ -125,6 +125,11 @@ public sealed class EstadoSistema
     public string UrlSegura { get; init; } = "";
 
     public int PuertoDns { get; init; }
+
+    /// "activo", "fallo" o "no-aplica". El DHCP solo existe en modo punto de
+    /// acceso propio, y "apagado porque no toca" no es lo mismo que "se cayo".
+    public string Dhcp { get; init; } = "no-aplica";
+
     public List<Adaptador> Adaptadores { get; init; } = new();
 
     // Cierre de operacion
@@ -210,6 +215,9 @@ public sealed class EstadoSistema
                 ? portal.GetProperty("urlBase").GetString() ?? "" : "",
             UrlSegura = portal.ValueKind == JsonValueKind.Object ? Texto(portal, "urlSegura") : "",
             PuertoDns = portal.ValueKind == JsonValueKind.Object ? Entero(portal, "puertoDns") : 0,
+            Dhcp = portal.ValueKind == JsonValueKind.Object
+                ? (Texto(portal, "dhcp") is { Length: > 0 } d ? d : "no-aplica")
+                : "no-aplica",
             Adaptadores = adaptadores,
 
             EstadoCierre = Texto(ci, "estado", "abierta"),

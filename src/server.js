@@ -179,6 +179,10 @@ async function arrancar() {
     puertoHttp: config.puertoHttp,
     puertoHttps: servidorSeguro ? config.puertoHttps : null,
     puertoDns: dns ? config.puertoDns : null,
+    // El DHCP solo existe en modo propio. Se distingue "apagado porque no
+    // toca" de "deberia estar y no arranco": lo segundo deja a los celulares
+    // en 169.254.x.x sin llegar a ningun sitio, y tiene que verse.
+    dhcp: config.modo === 'propio' ? (dhcp ? 'activo' : 'fallo') : 'no-aplica',
   });
 
   console.log('');

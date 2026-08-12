@@ -72,32 +72,70 @@ async function soportado() {
   const hospedada = !!lineaHospedada && diceQueSi(lineaHospedada);
 
   const capacidades = await correr('netsh', ['wlan', 'show', 'wirelesscapabilities']);
-  const lineaSoftAp = lineaDe(capacidades.texto, /soft\s*ap/i);
-  // Aqui netsh dice "compatible" / "no compatible", no si/no.
-  const softAp = !!lineaSoftAp && /:\s*compatible/i.test(lineaSoftAp) &&
-                 !/no\s*compatible/i.test(lineaSoftAp);
+  const compatible = (patron) => {
+    const linea = lineaDe(capacidades.texto, patron);
+    return !!linea && /:\s*compatible/i.test(linea) && !/no\s*compatible/i.test(linea);
+  };
+
+  const softAp = compatible(/soft\s*ap/i);
+  // "GO" = Group Owner: es el que puede EMITIR una red. Sin GO, la tarjeta solo
+  // sabe conectarse a la de otro y no nos sirve de nada.
+  const wifiDirect = compatible(/wi-?fi\s*direct\s*go/i);
+
+  // Tope de clientes del modo P2P, tal como lo reporta el propio driver. Es el
+  // numero que decide si este camino sirve para algo, asi que se lee y se dice
+  // en vez de suponerlo: va de 2 a 8 segun el adaptador.
+  const lineaMax = lineaDe(capacidades.texto, /(m[aá]x.*clientes|max.*clients).*p2p|p2p.*(m[aá]x.*clientes|max.*clients)/i);
+  const maximo = Number((lineaMax.match(/(\d+)\s*$/) || [])[1]) || null;
 
   if (hospedada || softAp) {
     return {
       soportado: true,
       tarjeta,
       mecanismo: hospedada ? 'hospedada' : 'softap',
+      maximo: null,
       motivo: null,
     };
   }
 
-  const lineaMax = lineaDe(capacidades.texto, /(m[aá]x.*clientes|max.*clients)/i);
-  const maximo = (lineaMax.match(/(\d+)\s*$/) || [])[1];
+  /**
+   * Tercer camino: Wi-Fi Direct en modo LEGACY.
+   *
+   * Wi-Fi Direct "puro" no sirve —los iPhone no lo hablan y en Android vive en
+   * un menu aparte, no en la lista normal de redes—, pero su modo legacy emite
+   * un SSID corriente con clave WPA2, al que se conecta cualquier telefono sin
+   * enterarse de lo que hay debajo.
+   *
+   * Se ofrece aunque el tope de clientes sea ridiculo comparado con un router.
+   * El criterio es del operador: en un punto con poca gente, poder atender a
+   * dos personas es infinitamente mejor que no poder atender a ninguna.
+   */
+  if (wifiDirect) {
+    return {
+      soportado: true,
+      tarjeta,
+      mecanismo: 'wifidirect',
+      maximo,
+      motivo:
+        `La tarjeta "${tarjeta || 'WiFi'}" no admite red hospedada ni Soft AP, ` +
+        'pero SI Wi-Fi Direct, que sirve como punto de acceso de emergencia.\n' +
+        (maximo
+          ? `TOPE REAL: ${maximo} ${maximo === 1 ? 'telefono' : 'telefonos'} a la vez. `
+          : 'El tope de clientes lo pone el driver y suele ser muy bajo (2 a 8). ') +
+        'Es poco, pero funciona sin router y sin internet.\n' +
+        'Si esperas mas gente, usa el modo router.',
+    };
+  }
 
   return {
     soportado: false,
     tarjeta,
     mecanismo: null,
+    maximo,
     motivo:
-      `La tarjeta "${tarjeta || 'WiFi'}" NO puede hacer de punto de acceso: ` +
-      'no admite red hospedada ni Soft AP.' +
-      (maximo ? ` Solo admite Wi-Fi Direct, y con un tope de ${maximo} clientes.` : '') +
-      '\nUsa el modo router, o un adaptador WiFi que si lo admita ' +
+      `La tarjeta "${tarjeta || 'WiFi'}" NO puede emitir ninguna red: ` +
+      'no admite red hospedada, ni Soft AP, ni Wi-Fi Direct como emisor.\n' +
+      'Usa el modo router, o un adaptador WiFi que si lo admita ' +
       '(compruebalo con: netsh wlan show wirelesscapabilities).',
   };
 }
@@ -170,9 +208,95 @@ async function configurar({ ssid, clave }) {
   return { ok: r.ok, error: r.ok ? null : r.texto.trim() };
 }
 
-async function iniciar() {
+/* ------------------------------------------------------------------ *
+ * Camino Wi-Fi Direct
+ *
+ * El anuncio de Wi-Fi Direct vive mientras viva el proceso que lo publica, asi
+ * que no se puede "lanzar y olvidar" como netsh: hay que quedarse con el hijo
+ * y matarlo para bajar la red.
+ * ------------------------------------------------------------------ */
+const { spawn } = require('node:child_process');
+const path = require('node:path');
+
+let procesoDirect = null;
+
+function iniciarWifiDirect({ ssid, clave }) {
+  return new Promise((resolver) => {
+    if (procesoDirect) return resolver({ ok: true, error: null });
+
+    const hijo = spawn('powershell', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', path.join(__dirname, 'wifidirect.ps1'),
+      '-Ssid', ssid, '-Clave', clave,
+    ], { windowsHide: true });
+
+    let salida = '';
+    let resuelto = false;
+
+    const terminar = (resultado) => {
+      if (resuelto) return;
+      resuelto = true;
+      resolver(resultado);
+    };
+
+    hijo.stdout.on('data', (d) => {
+      salida += d.toString();
+      if (/^LISTO:/m.test(salida)) {
+        procesoDirect = hijo;
+        terminar({ ok: true, error: null });
+      }
+      const fallo = salida.match(/^ERROR:\s*(.+)$/m);
+      if (fallo) terminar({ ok: false, error: fallo[1].trim() });
+    });
+
+    hijo.stderr.on('data', (d) => { salida += d.toString(); });
+
+    hijo.on('close', () => {
+      procesoDirect = null;
+      terminar({ ok: false, error: salida.trim() || 'El anuncio de Wi-Fi Direct no arranco.' });
+    });
+
+    hijo.on('error', (err) => terminar({ ok: false, error: err.message }));
+
+    // Si en 12 s no dijo ni LISTO ni ERROR, algo se colgo. Mejor rendirse con
+    // un mensaje claro que dejar al operador mirando una pantalla quieta.
+    setTimeout(() => {
+      if (resuelto) return;
+      try { hijo.kill(); } catch { /* ya murio */ }
+      terminar({ ok: false, error: 'Wi-Fi Direct no respondio a tiempo.' });
+    }, 12000);
+  });
+}
+
+/**
+ * @param {object} [opciones] ssid y clave, necesarios solo por Wi-Fi Direct:
+ *   la red hospedada ya los tiene guardados de configurar().
+ */
+async function iniciar(opciones = {}) {
+  const capacidad = await soportado();
+
+  if (capacidad.mecanismo === 'wifidirect') {
+    if (!opciones.ssid || !opciones.clave) {
+      return { ok: false, error: 'Wi-Fi Direct necesita el nombre de red y la clave.' };
+    }
+    const r = await iniciarWifiDirect(opciones);
+    if (!r.ok) return { ok: false, error: `Wi-Fi Direct: ${r.error}` };
+
+    // Windows le pone IP a la tarjeta virtual el solo (192.168.137.1, la de
+    // siempre de "compartir conexion"). Se devuelve para que el DHCP reparta
+    // en ESE segmento en vez de en uno inventado.
+    await new Promise((resolver) => setTimeout(resolver, 1500));
+    return {
+      ok: true,
+      error: null,
+      mecanismo: 'wifidirect',
+      maximo: capacidad.maximo,
+      ip: await ipDelPuntoAcceso(),
+    };
+  }
+
   const r = await correr('netsh', ['wlan', 'start', 'hostednetwork']);
-  if (r.ok) return { ok: true, error: null };
+  if (r.ok) return { ok: true, error: null, mecanismo: 'hospedada' };
 
   // El mensaje crudo de netsh no le dice nada a nadie; traducimos las causas
   // que se dan de verdad en terreno.
@@ -185,6 +309,11 @@ async function iniciar() {
 }
 
 async function detener() {
+  if (procesoDirect) {
+    try { procesoDirect.kill(); } catch { /* ya murio */ }
+    procesoDirect = null;
+    return { ok: true, error: null };
+  }
   const r = await correr('netsh', ['wlan', 'stop', 'hostednetwork']);
   return { ok: r.ok, error: r.ok ? null : r.texto.trim() };
 }
@@ -193,26 +322,106 @@ async function detener() {
  * Pone IP fija en la tarjeta del punto de acceso. Sin esto Windows le deja una
  * 169.254.x.x y nuestro DHCP repartiria direcciones de una red que no existe.
  */
-async function fijarIp({ adaptador, ip, mascara }) {
-  if (!adaptador) return { ok: false, error: 'No se sabe que tarjeta configurar.' };
-  const r = await correr('netsh', [
-    'interface', 'ip', 'set', 'address', `name=${adaptador}`, 'static', ip, mascara,
-  ]);
-  return { ok: r.ok, error: r.ok ? null : r.texto.trim() };
+/**
+ * IP que la tarjeta del punto de acceso tiene AHORA.
+ *
+ * Importa porque Windows no la deja en blanco: al levantar Wi-Fi Direct le
+ * asigna sola 192.168.137.1, que es la direccion de siempre del "compartir
+ * conexion". Pelearse con eso no aporta nada —y ademas exige Administrador—,
+ * asi que se lee y se usa la que ya esta.
+ */
+async function ipDelPuntoAcceso() {
+  const r = await correr('powershell', ['-NoProfile', '-Command',
+    "Get-NetAdapter | Where-Object { $_.InterfaceDescription -match 'Hosted Network Virtual|Wi-Fi Direct Virtual' -and $_.Status -eq 'Up' } | " +
+    'ForEach-Object { (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress } | ' +
+    'Select-Object -First 1']);
+
+  const ip = (r.texto || '').trim().split('\n')[0].trim();
+  return /^\d+\.\d+\.\d+\.\d+$/.test(ip) ? ip : null;
 }
 
-/** Nombre de la tarjeta virtual que crea la red hospedada. */
+/** 255.255.255.0 -> 24. New-NetIPAddress trabaja con longitud de prefijo. */
+function longitudPrefijo(mascara) {
+  const octetos = String(mascara || '255.255.255.0').split('.').map(Number);
+  if (octetos.length !== 4 || octetos.some((o) => !Number.isInteger(o) || o < 0 || o > 255)) return 24;
+  return octetos
+    .map((o) => o.toString(2).padStart(8, '0'))
+    .join('')
+    .replace(/0+$/, '')
+    .length;
+}
+
+async function fijarIp({ adaptador, ip, mascara }) {
+  if (!adaptador) return { ok: false, error: 'No se sabe que tarjeta configurar.' };
+
+  /**
+   * Se busca la tarjeta y se le pone la IP en UNA sola pasada de PowerShell,
+   * sin que su nombre salga nunca de ahi. Dos motivos, los dos aprendidos a
+   * golpes:
+   *
+   *   - La tarjeta virtual se llama "Conexion de area local* 12". Ese
+   *     ASTERISCO hace que netsh falle con un error sobre nombres de archivo
+   *     que no tiene nada que ver con lo que esta pasando.
+   *   - Y lleva ACENTOS, que se corrompen al pasar por la tuberia: el nombre
+   *     vuelve como "Conexi?n de ?rea local* 12" y ya no casa con nada.
+   *
+   * Por dentro se trabaja con el indice de interfaz, que es un numero.
+   */
+  const prefijo = longitudPrefijo(mascara);
+
+  const r = await correr('powershell', ['-NoProfile', '-Command', `
+    $ErrorActionPreference = 'Stop'
+    $tarjeta = Get-NetAdapter |
+      Where-Object { $_.InterfaceDescription -match 'Hosted Network Virtual|Wi-Fi Direct Virtual' -and $_.Status -eq 'Up' } |
+      Select-Object -First 1
+    if (-not $tarjeta) { Write-Output 'ERROR: no hay ninguna tarjeta de punto de acceso levantada'; exit 1 }
+    try {
+      Remove-NetIPAddress -InterfaceIndex $tarjeta.ifIndex -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
+      Remove-NetRoute -InterfaceIndex $tarjeta.ifIndex -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
+    } catch { }
+    New-NetIPAddress -InterfaceIndex $tarjeta.ifIndex -IPAddress '${ip}' -PrefixLength ${prefijo} | Out-Null
+    Write-Output 'LISTO'
+  `.trim()]);
+
+  const salida = r.texto.trim();
+  if (/^LISTO/m.test(salida)) return { ok: true, error: null };
+  return { ok: false, error: salida || 'No se pudo asignar la IP.' };
+}
+
+/**
+ * Nombre de la tarjeta virtual sobre la que vive la red que emitimos.
+ *
+ * Es la pieza que hay que acertar: si se le pone la IP a la tarjeta
+ * equivocada, la red se ve desde el celular pero el DHCP reparte direcciones
+ * de un segmento que no existe y nadie llega a ningun sitio. Un fallo que
+ * parece "el portal no carga" y no tiene nada que ver con el portal.
+ *
+ * Los dos mecanismos crean adaptadores distintos:
+ *   - red hospedada  -> "Microsoft Hosted Network Virtual Adapter"
+ *   - Wi-Fi Direct   -> "Microsoft Wi-Fi Direct Virtual Adapter"
+ * Se busca por la DESCRIPCION del adaptador, no por el nombre de la conexion:
+ * el nombre es "Conexion de area local* 12" y cambia de numero cada vez.
+ */
 async function adaptadorHospedado() {
-  const { ok, texto } = await correr('netsh', ['interface', 'show', 'interface']);
-  if (!ok) return null;
-  const linea = texto.split('\n').find((l) => /hosted network|red hospedada|conexi.n de red local\* /i.test(l));
+  const { ok, texto } = await correr('powershell', ['-NoProfile', '-Command',
+    "Get-NetAdapter | Where-Object { $_.InterfaceDescription -match 'Hosted Network Virtual|Wi-Fi Direct Virtual' -and $_.Status -eq 'Up' } | " +
+    'Select-Object -First 1 -ExpandProperty Name']);
+
+  const nombre = ok ? texto.trim().split('\n')[0].trim() : '';
+  if (nombre) return nombre;
+
+  // Respaldo por si PowerShell no esta disponible: el listado de netsh, donde
+  // la ultima columna es el nombre de la conexion.
+  const alterno = await correr('netsh', ['interface', 'show', 'interface']);
+  if (!alterno.ok) return null;
+  const linea = alterno.texto.split('\n')
+    .find((l) => /hosted network|red hospedada|conexi.n de .rea local\* /i.test(l));
   if (!linea) return null;
-  // La ultima columna es el nombre de la conexion.
   const columnas = linea.trim().split(/\s{2,}/);
   return columnas[columnas.length - 1] || null;
 }
 
 module.exports = {
   soportado, estado, configurar, iniciar, detener, fijarIp, adaptadorHospedado,
-  componerSsid,
+  componerSsid, ipDelPuntoAcceso,
 };

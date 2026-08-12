@@ -5,6 +5,60 @@ versionado según [SemVer](https://semver.org/lang/es/).
 
 ---
 
+## [1.6.0] — 2026-08-12
+
+### Añadido
+
+- **Punto de acceso por Wi-Fi Direct: tarjetas que antes se descartaban ahora
+  sirven.** Casi ningún adaptador moderno admite ya la «red hospedada», y sin
+  ella el modo punto de acceso propio quedaba fuera del alcance de la mayoría
+  del hardware — incluido el dongle con el que se desarrolla esto.
+
+  Wi-Fi Direct sí está en prácticamente cualquier tarjeta actual. Su modo
+  *legacy* emite un **SSID corriente con clave WPA2**, al que se conecta
+  cualquier teléfono desde la lista de siempre, iPhone incluido, sin enterarse
+  de lo que hay debajo. (Wi-Fi Direct «puro» no serviría: los iPhone no lo
+  hablan y en Android vive en un menú aparte.)
+
+  Verificado sobre un Realtek RTL8192EU, que declara `Red hospedada: no` y
+  `Soft AP: no compatible`.
+
+- **El diagnóstico dice el tope real de clientes**, leído del propio driver.
+  En esa tarjeta son **2 teléfonos**. Es poquísimo comparado con un router,
+  y por eso se dice antes de salir a terreno en vez de que se descubra allá.
+  Dos es poco; cero es peor.
+
+- **Leds de estado** en la cabecera del panel: Portal, DNS y **DHCP**, siempre
+  a la vista. Con tres estados y no dos — verde, rojo y **gris** —, porque
+  «apagado porque no toca» no es lo mismo que «se cayó», y confundirlos manda a
+  buscar el problema al sitio equivocado. El estado del DHCP no se reportaba
+  en absoluto.
+
+### Cambiado
+
+- **La pestaña del panel es ahora «Cartel para imprimir»**, no «Portal de la
+  gente». El operador no necesita mirar el formulario de registro; necesita
+  imprimir el cartel con el nombre de la red, porque si nadie sabe a qué red
+  conectarse no hay censo que valga. El portal sigue accesible desde el cajón.
+
+### Notas de implementación
+
+Tres cosas que solo se aprenden probando, anotadas para quien venga después:
+
+- La tarjeta virtual se llama `Conexión de área local* 12`. Ese **asterisco**
+  hace que `netsh` falle con un error sobre nombres de archivo que no tiene
+  nada que ver; y los **acentos** se corrompen al pasar por la tubería, así que
+  el nombre tampoco se puede sacar de PowerShell y volver a meter. Se busca y
+  se asigna todo dentro de la misma pasada, trabajando por índice de interfaz.
+- **Windows le pone IP sola** a esa tarjeta: `192.168.137.1`. Cambiarla exige
+  Administrador; si no se puede, ahora se dice cuál quedó para poder configurar
+  el DHCP en ese segmento en vez de dejar al operador con un «el portal no
+  carga» que no tiene nada que ver con el portal.
+- PowerShell **no puede suscribirse a eventos de WinRT** (`Register-ObjectEvent`
+  revienta con `INVALID_REGISTRATION`). Hay que consultar el estado en un bucle.
+
+---
+
 ## [1.5.0] — 2026-08-12
 
 ### Corregido — iPhone

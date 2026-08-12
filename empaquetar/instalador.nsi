@@ -10,7 +10,7 @@
 !include "MUI2.nsh"
 
 !define NOMBRE     "SOS Conectate Pide Ayuda"
-!define VERSION    "1.5.0"
+!define VERSION    "1.6.0"
 !define CARPETA    "salida\SOS.Conectate.PideAyuda"
 
 Name              "${NOMBRE}"
@@ -24,7 +24,7 @@ InstallDirRegKey  HKLM "Software\SOSConectate" "InstallDir"
 RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 
-VIProductVersion "1.5.0.0"
+VIProductVersion "1.6.0.0"
 VIAddVersionKey  "ProductName"     "${NOMBRE}"
 VIAddVersionKey  "FileDescription" "Portal cautivo de emergencia"
 VIAddVersionKey  "FileVersion"     "${VERSION}"

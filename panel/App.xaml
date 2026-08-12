@@ -96,6 +96,25 @@
       </Style.Triggers>
     </Style>
 
+    <!-- Leds de estado. El color lo pone el code-behind; aqui solo la forma y
+         el halo, que es lo que los hace legibles de lejos sobre fondo oscuro. -->
+    <Style x:Key="Led" TargetType="Ellipse">
+      <Setter Property="Width" Value="11"/>
+      <Setter Property="Height" Value="11"/>
+      <Setter Property="Margin" Value="0,0,7,0"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Fill" Value="#484F58"/>
+      <Setter Property="Stroke" Value="#20000000"/>
+      <Setter Property="StrokeThickness" Value="1"/>
+    </Style>
+
+    <Style x:Key="EtiquetaLed" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextoSuave}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
     <Style x:Key="Titulo" TargetType="TextBlock">
       <Setter Property="Foreground" Value="{StaticResource TextoSuave}"/>
       <Setter Property="FontSize" Value="11"/>

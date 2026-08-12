@@ -22,9 +22,23 @@ async function diagnosticar() {
   console.log(`  Tarjeta : ${soporte.tarjeta || '(ninguna)'}`);
   console.log('');
 
+  const NOMBRE_MECANISMO = {
+    hospedada: 'red hospedada',
+    softap: 'Soft AP',
+    wifidirect: 'Wi-Fi Direct (modo legacy)',
+  };
+
   if (soporte.soportado) {
     console.log('   [ SI ]  Puede montar la red por su cuenta.');
-    console.log(`           Mecanismo: ${soporte.mecanismo === 'hospedada' ? 'red hospedada' : 'Soft AP'}`);
+    console.log(`           Mecanismo: ${NOMBRE_MECANISMO[soporte.mecanismo] || soporte.mecanismo}`);
+
+    // El tope de clientes es EL dato que decide si este camino sirve para el
+    // sitio donde se va a desplegar. Va aqui arriba y no enterrado en un motivo.
+    if (soporte.mecanismo === 'wifidirect') {
+      console.log('');
+      for (const l of String(soporte.motivo || '').split('\n')) console.log(`           ${l}`);
+    }
+
     console.log('');
     console.log(`  Red      : ${config.puntoAcceso.ssid}`);
     console.log(`  Clave    : ${config.puntoAcceso.clave}` +
@@ -73,16 +87,36 @@ async function iniciar() {
   const conf = await ap.configurar({ ssid, clave });
   if (!conf.ok) { console.log(`  FALLO: ${conf.error}\n`); process.exit(1); }
 
-  const arranque = await ap.iniciar();
+  // El SSID y la clave van SIEMPRE: la red hospedada ya los tiene guardados de
+  // configurar(), pero Wi-Fi Direct los necesita al publicar el anuncio.
+  const arranque = await ap.iniciar({ ssid, clave });
   if (!arranque.ok) { console.log(`  FALLO: ${arranque.error}\n`); process.exit(1); }
-  console.log('  Red levantada.');
+
+  console.log(`  Red levantada por ${arranque.mecanismo === 'wifidirect' ? 'Wi-Fi Direct' : 'red hospedada'}.`);
+  if (arranque.maximo) {
+    console.log(`  OJO: esta tarjeta admite ${arranque.maximo} telefono/s a la vez como maximo.`);
+  }
 
   const adaptador = config.puntoAcceso.adaptador || await ap.adaptadorHospedado();
   if (adaptador) {
     const fijada = await ap.fijarIp({ adaptador, ip, mascara });
-    console.log(fijada.ok
-      ? `  IP ${ip} fijada en "${adaptador}".`
-      : `  AVISO: no se pudo fijar la IP en "${adaptador}": ${fijada.error}`);
+    if (fijada.ok) {
+      console.log(`  IP ${ip} fijada en "${adaptador}".`);
+    } else {
+      console.log(`  AVISO: no se pudo fijar la IP: ${fijada.error}`);
+
+      // Windows le pone IP sola a la tarjeta de Wi-Fi Direct (192.168.137.1).
+      // Si no se pudo cambiar —tipicamente por no estar elevado— hay que
+      // decirlo con la direccion real delante: repartir DHCP en un segmento y
+      // tener la tarjeta en otro es un fallo que parece "el portal no carga"
+      // y no tiene nada que ver con el portal.
+      const actual = await ap.ipDelPuntoAcceso();
+      if (actual) {
+        console.log(`         La tarjeta se quedo en ${actual}.`);
+        console.log(`         O lanzas esto como Administrador, o configuras el modo`);
+        console.log(`         propio con ${actual} para que el DHCP reparta en su segmento.`);
+      }
+    }
   } else {
     console.log('  AVISO: no se encontro la tarjeta virtual para fijarle la IP.');
     console.log(`         Ponsela a mano: ${ip} / ${mascara}`);
